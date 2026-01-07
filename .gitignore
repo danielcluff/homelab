@@ -1,0 +1,19 @@
+# Kubernetes secrets (unencrypted)
+secrets/
+*.key
+*.pem
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Helm
+charts/
+
+# Temporary files
+*.tmp
+*.log
