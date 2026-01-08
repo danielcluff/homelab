@@ -1,0 +1,36 @@
+---
+# MetalLB configuration for homelab
+# IP pool: 192.168.1.50-99 (50 addresses for LoadBalancer services)
+
+# IPAddressPool CRD configuration
+ipAddressPool:
+  enabled: true
+  addresses:
+    - 192.168.1.50-192.168.1.99
+
+# L2Advertisement CRD configuration
+l2Advertisement:
+  enabled: true
+  interfaces:
+    - enp2s0
+  ipAddressPools:
+      - homelab-pool
+
+# Speaker configuration
+speaker:
+  # Critical for Talos: ignore the node.kubernetes.io/exclude-from-external-load-balancers label
+  # that Talos automatically applies to control plane nodes
+  ignoreExcludeLB: true
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+  extraArgs:
+    - --protocol=layer2
+    - --arping-interval=10
+    - --arping-interface=enp2s0
+    - --arping-ip-address=192.168.1.41
+

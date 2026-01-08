@@ -1,0 +1,65 @@
+---
+# Heimdall dashboard configuration for homelab
+# Accessible at https://home.com
+
+image:
+  repository: linuxserver/heimdall
+  pullPolicy: IfNotPresent
+  tag: latest
+
+env:
+  TZ: America/Chicago
+  PUID: "1000"
+  PGID: "1000"
+
+service:
+  main:
+    ports:
+      http:
+        port: 80
+        targetPort: 80
+
+ingress:
+  main:
+    enabled: true
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned-issuer
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    hosts:
+      - host: home.com
+        paths:
+          - path: /
+            pathType: Prefix
+      - host: dashboard.home.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: home.com-tls
+        hosts:
+          - home.com
+          - dashboard.home.com
+
+persistence:
+  config:
+    enabled: true
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 1Gi
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+affinity: {}

@@ -1,0 +1,48 @@
+---
+# Traefik configuration for homelab
+# Domain: homelab.local (internal only)
+
+# Enable dashboard
+ingressRoute:
+  dashboard:
+    enabled: true
+    matchRule: Host(`traefik.home.com`)
+    entryPoints: ["websecure"]
+    tls:
+      secretName: home-com-tls
+
+# Service configuration - use LoadBalancer with MetalLB
+service:
+  type: LoadBalancer
+  # MetalLB will assign an IP from the pool (192.168.1.50-99)
+
+# Ports configuration
+ports:
+  web:
+    port: 80
+    exposedPort: 80
+  websecure:
+    port: 443
+    exposedPort: 443
+    tls:
+      enabled: true
+
+# Enable access logs for troubleshooting
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+# Additional configuration
+additionalArguments:
+  - "--api.insecure=true"
+  - "--providers.kubernetesingress.ingressclass=traefik"
+  - "--providers.kubernetescrd"
+  - "--serverstransport.insecureskipverify=true"
+
+# TLS configuration
+tlsStore:
+  default:
+    defaultCertificate:
+      secretName: home-com-tls

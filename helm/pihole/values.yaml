@@ -1,0 +1,64 @@
+---
+# Pi-hole configuration for homelab
+# DNS and ad blocking
+
+# Service configuration - use LoadBalancer for DNS access
+serviceDns:
+    type: LoadBalancer
+    loadBalancerIP: "192.168.1.51" # Static IP from MetalLB pool
+    annotations:
+        metallb.universe.tf/allow-shared-ip: pihole-svc
+
+serviceWeb:
+    type: LoadBalancer
+    loadBalancerIP: "192.168.1.51" # Same IP as DNS
+    annotations:
+        metallb.universe.tf/allow-shared-ip: pihole-svc
+    http:
+        enabled: true
+        port: 80
+
+# DNS settings
+DNS1: "192.168.1.1" # Your router as upstream DNS
+DNS2: "1.1.1.1" # Cloudflare as backup
+
+# Admin password (change this!)
+admin:
+    password: "filtered"
+
+# Persistent storage (disabled temporarily until Longhorn is ready)
+persistentVolumeClaim:
+    enabled: false
+
+# Custom DNS records for home.com
+customDnsEntries:
+    - address: 192.168.1.50
+      domain: home.com
+    - address: 192.168.1.50
+      domain: dashboard.home.com
+    - address: 192.168.1.50
+      domain: traefik.home.com
+    - address: 192.168.1.50
+      domain: longhorn.home.com
+    - address: 192.168.1.51
+      domain: pihole.home.com
+
+# Additional configuration
+dnsmasq:
+    customDnsEntries:
+        - address=/home.com/192.168.1.50 # Default all *.home.com to Traefik
+
+# Resources
+resources:
+    limits:
+        cpu: 200m
+        memory: 256Mi
+    requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Tolerations for control plane (single node cluster)
+tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule

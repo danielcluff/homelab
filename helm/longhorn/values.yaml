@@ -1,0 +1,35 @@
+---
+# Longhorn configuration for homelab
+# Persistent storage solution
+
+# Default settings for single node cluster
+defaultSettings:
+  # Set replica count to 1 for single node (increase when you add more nodes)
+  defaultReplicaCount: 1
+  # Allow scheduling on nodes with existing replicas (needed for single node)
+  replicaSoftAntiAffinity: true
+  # Storage path on the node
+  defaultDataPath: /var/lib/longhorn
+
+# Expose Longhorn UI via Traefik ingress
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    host: longhorn.home.com
+    tls: true
+    tlsSecret: home.com-tls
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned-issuer
+      traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+
+# Persistence settings
+persistence:
+  defaultClass: true
+  defaultClassReplicaCount: 1
+
+# Tolerations for control-plane node (single node cluster)
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
