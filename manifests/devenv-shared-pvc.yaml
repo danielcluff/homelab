@@ -1,0 +1,22 @@
+---
+# Shared storage PVC for dev environments
+# This PVC is mounted read-write by all dev environment pods
+# Use it for: common tools, package caches, shared datasets, scripts
+#
+# Mount path: /mnt/shared
+# Apply with: kubectl apply -f manifests/devenv-shared-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: devenv-shared
+  namespace: devenv
+  labels:
+    app: devenv
+    component: shared-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi

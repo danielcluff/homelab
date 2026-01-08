@@ -10,6 +10,7 @@ See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details.
 
 -   [Infrastructure Overview](#infrastructure-overview)
 -   [Deployed Services](#deployed-services)
+-   [Development Environments](#development-environments)
 -   [Network Configuration](#network-configuration)
 -   [Getting Started](#getting-started)
 -   [Service Access](#service-access)
@@ -302,6 +303,122 @@ curl -I http://192.168.1.50  # Should return HTTP headers
 -   Add/manage homelab services via web UI
 -   HTTPS-only access with self-signed certificate
 -   Customizable dashboards and themes
+
+---
+
+## Development Environments
+
+### Overview
+
+Development environments using **code-server** (VS Code in browser) for remote development with persistent storage.
+
+**Configuration**:
+
+-   Namespace: `devenv`
+-   IDE: code-server (VS Code in browser)
+-   Main Environment: `https://dev.home.com`
+-   Project-specific: `https://project1.home.com`, etc.
+-   Storage: Longhorn persistent volumes
+-   Documentation: `helm/code-server/README.md`
+
+**Status**: 🚧 Not yet deployed (configuration files ready)
+
+### Architecture
+
+```
+Browser (https://dev.home.com)
+    ↓
+Traefik Ingress (TLS via cert-manager)
+    ↓
+code-server Pod
+    ├─ Workspace PVC (project-specific code)
+    └─ Shared PVC (common tools, caches)
+    ↓
+Longhorn Storage
+```
+
+### Storage Layout
+
+-   **Shared Storage** (50Gi): Common tools, package caches, shared files
+    -   Mounted at `/mnt/shared` in all dev environments
+    -   Created once, reused by all environments
+-   **Workspace Storage** (10-20Gi per environment): Project-specific code
+    -   Mounted at `/home/coder` in each environment
+    -   Persists code, extensions, and configuration
+
+### Deployment
+
+**Prerequisites**:
+
+```bash
+# Add code-server Helm repository
+helm repo add coder https://helm.coder.com/v2
+helm repo update
+
+# Create namespace
+kubectl create namespace devenv
+
+# Copy TLS certificate
+kubectl get secret home.com-tls -n heimdall -o yaml | \
+  sed 's/namespace: heimdall/namespace: devenv/' | \
+  kubectl apply -f -
+
+# Create shared storage
+kubectl apply -f manifests/devenv-shared-pvc.yaml
+```
+
+**Deploy main dev environment**:
+
+```bash
+# Deploy code-server
+helm install code-server-main coder/code-server \
+  -n devenv \
+  -f helm/code-server/values-main.yaml
+
+# Update Pi-hole DNS (add to helm/pihole/values.yaml customDnsEntries)
+# - address: 192.168.1.50
+#   domain: dev.home.com
+
+# Upgrade Pi-hole
+helm upgrade pihole mojo2600/pihole -n pihole -f helm/pihole/values.yaml
+
+# Access at: https://dev.home.com
+```
+
+### Access Methods
+
+1. **Browser IDE**: `https://dev.home.com`
+2. **Terminal in browser**: Built-in terminal in VS Code
+3. **kubectl exec**: `kubectl exec -it -n devenv deployment/code-server-main -- bash`
+4. **Port-forward**: `kubectl port-forward -n devenv svc/code-server-main 8080:8080`
+
+### Creating Project Environments
+
+```bash
+# 1. Copy template
+cp helm/code-server/values-project1.yaml helm/code-server/values-myproject.yaml
+
+# 2. Edit values-myproject.yaml:
+#    - Change hostname (e.g., myproject.home.com)
+#    - Update PROJECT_NAME env var
+#    - Adjust storage size if needed
+
+# 3. Add DNS entry to helm/pihole/values.yaml
+
+# 4. Deploy
+helm install code-server-myproject coder/code-server \
+  -n devenv \
+  -f helm/code-server/values-myproject.yaml
+```
+
+### Management
+
+See detailed documentation in `helm/code-server/README.md` for:
+
+-   Creating and deleting environments
+-   Installing additional tools
+-   Configuring VS Code extensions
+-   Troubleshooting
 
 ---
 
@@ -777,8 +894,12 @@ homelab/
  │   │   └── values.yaml           # Longhorn configuration
  │   ├── pihole/
  │   │   └── values.yaml           # Pi-hole configuration
- │   └── heimdall/
- │       └── values.yaml           # Heimdall configuration
+ │   ├── heimdall/
+ │   │   └── values.yaml           # Heimdall configuration
+ │   └── code-server/
+ │       ├── README.md             # Dev environments guide
+ │       ├── values-main.yaml      # Main dev environment
+ │       └── values-project1.yaml  # Project template
  ├── secrets/                      # Unencrypted secrets (NEVER commit)
  │   └── pihole-password.yaml   # Example secret template
  ├── sealedsecrets/                # Encrypted secrets (SAFE to commit)
@@ -786,7 +907,8 @@ homelab/
       ├── cluster-issuer.yaml       # Cert-manager issuer
       ├── wildcard-cert.yaml        # Wildcard certificate
       ├── pihole-ingress.yaml     # Pi-hole ingress
-      └── longhorn-ingress.yaml   # Longhorn ingress
+      ├── longhorn-ingress.yaml   # Longhorn ingress
+      └── devenv-shared-pvc.yaml    # Dev environments shared storage
 ```
 
 ---

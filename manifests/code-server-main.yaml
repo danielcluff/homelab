@@ -1,0 +1,130 @@
+---
+# Main dev environment deployment
+# Access: https://dev.home.com
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-server-main
+  namespace: devenv
+  labels:
+    app: code-server
+    environment: main
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: code-server
+      environment: main
+  template:
+    metadata:
+      labels:
+        app: code-server
+        environment: main
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsGroup: 1000
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: code-server
+          image: ghcr.io/coder/code-server:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --auth
+            - none
+            - --bind-addr
+            - 0.0.0.0:8080
+          env:
+            - name: TZ
+              value: America/Chicago
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /home/coder
+            - name: shared
+              mountPath: /mnt/shared
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: devenv-main-workspace
+        - name: shared
+          persistentVolumeClaim:
+            claimName: devenv-shared
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: devenv-main-workspace
+  namespace: devenv
+  labels:
+    app: code-server
+    environment: main
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-server-main
+  namespace: devenv
+  labels:
+    app: code-server
+    environment: main
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: code-server
+    environment: main
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: code-server-main
+  namespace: devenv
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned-issuer
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  labels:
+    app: code-server
+    environment: main
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: dev.home.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: code-server-main
+                port:
+                  number: 8080
+  tls:
+    - secretName: home.com-tls
+      hosts:
+        - dev.home.com

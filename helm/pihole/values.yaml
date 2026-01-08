@@ -26,9 +26,12 @@ DNS2: "1.1.1.1" # Cloudflare as backup
 admin:
     password: "filtered"
 
-# Persistent storage (disabled temporarily until Longhorn is ready)
+# Persistent storage - enabled with Longhorn
 persistentVolumeClaim:
-    enabled: false
+    enabled: true
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 5Gi
 
 # Custom DNS records for home.com
 customDnsEntries:
@@ -42,6 +45,8 @@ customDnsEntries:
       domain: longhorn.home.com
     - address: 192.168.1.51
       domain: pihole.home.com
+    - address: 192.168.1.50
+      domain: dev.home.com
 
 # Additional configuration
 dnsmasq:

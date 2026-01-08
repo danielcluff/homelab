@@ -1,0 +1,93 @@
+---
+# Main dev environment configuration
+# Accessible at https://dev.home.com
+# Deploy with: helm install code-server-main coder/code-server -n devenv -f helm/code-server/values-main.yaml
+
+image:
+  repository: codercom/code-server
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Code-server doesn't have a password by default
+# Set PASSWORD env var if you want password protection
+# Or use --link flag for one-time authentication links
+extraArgs:
+  - --auth
+  - none
+  # - --disable-telemetry
+
+# Environment variables
+extraEnvVars:
+  - name: TZ
+    value: America/Chicago
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress configuration
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned-issuer
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  hosts:
+    - host: dev.home.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: home.com-tls
+      hosts:
+        - dev.home.com
+
+# Persistence configuration
+persistence:
+  enabled: true
+  storageClassName: longhorn
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  # Mounts to /home/coder by default
+
+# Extra volumes for shared storage
+extraVolumes:
+  - name: shared
+    persistentVolumeClaim:
+      claimName: devenv-shared
+
+extraVolumeMounts:
+  - name: shared
+    mountPath: /mnt/shared
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Allow scheduling on control plane node (single-node cluster)
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+# Security context
+securityContext:
+  enabled: true
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+
+# Pod annotations
+podAnnotations: {}
+
+# Node selector
+nodeSelector: {}
+
+# Affinity
+affinity: {}
