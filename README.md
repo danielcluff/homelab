@@ -713,20 +713,49 @@ talosctl --nodes 192.168.1.41 --talosconfig=./talosconfig health
 
 ### Adding Additional Nodes
 
-When adding more Talos nodes in the future:
+When adding more Talos nodes, use the `generate-talos-config.sh` script to create node configurations with all the necessary patches (kernel modules, network settings, etc.):
 
+**Generate a new worker node config:**
 ```bash
-# For each new worker node
-WORKER_IP=("192.168.1.41" "192.168.1.42" "192.168.1.43")
+# Generate worker configuration for a new node
+./generate-talos-config.sh --type worker --ip 192.168.1.42
 
-for ip in "${WORKER_IP[@]}"; do
-    echo "Applying config to worker node: $ip"
-    talosctl apply-config --insecure --nodes "$ip" --file worker.yaml
-done
+# Review the generated worker.yaml file
+cat worker.yaml
 
-# Update Longhorn replica count when you have multiple nodes
+# Apply configuration to the node
+talosctl apply-config --insecure --nodes 192.168.1.42 --file worker.yaml
+
+# Wait for node to join the cluster
+kubectl get nodes -w
+```
+
+**Generate a new control plane node config:**
+```bash
+# For high availability, add additional control plane nodes
+./generate-talos-config.sh --type controlplane --ip 192.168.1.43
+
+# Apply to the node
+talosctl apply-config --insecure --nodes 192.168.1.43 --file controlplane.yaml
+```
+
+**Script options:**
+```bash
+# View all available options
+./generate-talos-config.sh --help
+
+# Example with custom gateway
+./generate-talos-config.sh --type worker --ip 192.168.1.44 --gateway 192.168.1.254
+```
+
+**After adding nodes:**
+```bash
+# Update Longhorn replica count when you have 3+ nodes
 kubectl patch -n longhorn-system settings.longhorn.io default-replica-count \
   -p '{"value":"3"}' --type=merge
+
+# Important: Revert MetalLB configuration to respect control plane exclusion
+helm upgrade metallb metallb/metallb -n metallb-system --set speaker.ignoreExcludeLB=false --reuse-values
 ```
 
 ---
@@ -737,8 +766,7 @@ kubectl patch -n longhorn-system settings.longhorn.io default-replica-count \
 homelab/
  ├── README.md                      # This file
  ├── SEALED_SECRETS.md             # Sealed Secrets setup guide
- ├── talosconfig                    # Talos cluster configuration
- ├── talos-patch.yaml              # Talos patch for iSCSI + static IP
+ ├── generate-talos-config.sh      # Script to generate node configurations
  ├── helm/                         # Helm chart configurations
  │   ├── metallb/
  │   │   ├── values.yaml           # MetalLB configuration

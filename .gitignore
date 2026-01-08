@@ -17,3 +17,10 @@ charts/
 # Temporary files
 *.tmp
 *.log
+
+# Talos configuration files (contain secrets)
+talosconfig
+controlplane.yaml
+worker.yaml
+talos-patch.yaml
+current-config.yaml
