@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: home-com-tls
+  namespace: cert-manager
+spec:
+  secretName: home-com-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days before expiration
+  commonName: "*.home.com"
+  dnsNames:
+    - "*.home.com"
+    - "home.com"
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer

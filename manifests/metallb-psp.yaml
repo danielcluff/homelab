@@ -1,0 +1,26 @@
+---
+apiVersion: policy/v1
+kind: PodSecurityPolicy
+metadata:
+  name: metallb-speaker
+  namespace: metallb-system
+spec:
+  privileged: true
+  allowPrivilegeEscalation: true
+  allowedCapabilities:
+    - '*'
+  volumes:
+    - '*'
+  hostNetwork: true
+  hostPorts:
+    - '*'
+  hostPID: false
+  hostIPC: false
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'RunAsAny'

@@ -1,0 +1,21 @@
+---
+apiVersion: policy/v1
+kind: PodSecurityException
+metadata:
+  name: metallb-speaker-exception
+  namespace: metallb-system
+spec:
+  exceptions:
+    - podSelector:
+        matchLabels:
+          app: metallb
+      allowedCapabilities:
+        - NET_ADMIN
+        - NET_RAW
+        - SYS_ADMIN
+      allowedHostPaths:
+        - pathPrefix: /sys
+        - pathPrefix: /dev
+      allowedHostPorts:
+        - min: 7472
+          max: 7946
