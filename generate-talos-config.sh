@@ -141,7 +141,6 @@ machine:
     modules:
       - name: nbd
       - name: iscsi_tcp
-      - name: iscsi_generic
       - name: configfs
   network:
     interfaces:
