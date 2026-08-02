@@ -1,0 +1,25 @@
+machine:
+  kernel:
+    modules:
+      - name: nbd
+      - name: iscsi_tcp
+      - name: configfs
+  network:
+    interfaces:
+      - interface: enp2s0
+        dhcp: false
+        addresses:
+          - 192.168.1.42/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.1.1
+    nameservers:
+      - 192.168.1.1
+  install:
+    disk: /dev/nvme0n1
+    image: factory.talos.dev/installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac:v1.11.6
+    wipe: true
+  sysctls:
+    net.ipv4.conf.all.arp_announce: "0"
+    net.ipv4.conf.all.arp_ignore: "0"
+    net.ipv4.ip_forward: "1"

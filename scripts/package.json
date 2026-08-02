@@ -1,0 +1,11 @@
+{
+  "name": "homelab-scripts",
+  "version": "1.0.0",
+  "description": "Homelab automation scripts",
+  "scripts": {
+    "setup-uptime-kuma": "node setup-uptime-kuma-socketio.js"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.2"
+  }
+}

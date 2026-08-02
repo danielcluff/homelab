@@ -18,13 +18,17 @@ serviceWeb:
         enabled: true
         port: 80
 
-# DNS settings
-DNS1: "192.168.1.1" # Your router as upstream DNS
-DNS2: "1.1.1.1" # Cloudflare as backup
+# DNS settings - Use external DNS directly to avoid loops when router points to Pi-hole
+DNS1: "1.1.1.1" # Cloudflare primary
+DNS2: "8.8.8.8" # Google DNS backup
 
-# Admin password (change this!)
+# Admin password is created by sealedsecrets/pihole-password-sealed.yaml.
+# Never put the plaintext password in this values file.
+adminPassword: ""
 admin:
-    password: "filtered"
+    enabled: true
+    existingSecret: "pihole-password"
+    passwordKey: "password"
 
 # Persistent storage - enabled with Longhorn
 persistentVolumeClaim:
@@ -33,25 +37,21 @@ persistentVolumeClaim:
     accessMode: ReadWriteOnce
     size: 5Gi
 
-# Custom DNS records for home.com
-customDnsEntries:
-    - address: 192.168.1.50
-      domain: home.com
-    - address: 192.168.1.50
-      domain: dashboard.home.com
-    - address: 192.168.1.50
-      domain: traefik.home.com
-    - address: 192.168.1.50
-      domain: longhorn.home.com
-    - address: 192.168.1.51
-      domain: pihole.home.com
-    - address: 192.168.1.50
-      domain: dev.home.com
-
 # Additional configuration
+# Custom DNS records for elate.me subdomains only
+# NOTE: Root domain elate.me is NOT included - it resolves via Cloudflare to VPS
 dnsmasq:
     customDnsEntries:
-        - address=/home.com/192.168.1.50 # Default all *.home.com to Traefik
+        - address=/dashboard.elate.me/192.168.1.50
+        - address=/traefik.elate.me/192.168.1.50
+        - address=/longhorn.elate.me/192.168.1.50
+        - address=/pihole.elate.me/192.168.1.51
+        - address=/dev.elate.me/192.168.1.50
+        - address=/homelab.elate.me/192.168.1.50
+        - address=/grafana.elate.me/192.168.1.50
+        - address=/uptime.elate.me/192.168.1.50
+        - address=/audio.elate.me/192.168.1.50
+        - address=/vpn.elate.me/192.168.1.54
 
 # Resources
 resources:

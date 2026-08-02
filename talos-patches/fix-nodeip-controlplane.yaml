@@ -1,0 +1,8 @@
+# Patch to fix kubelet nodeIP on control plane
+# Forces kubelet to use physical network IP (192.168.1.41) instead of Tailscale IP
+# This is required when Tailscale subnet router runs on the node
+machine:
+  kubelet:
+    nodeIP:
+      validSubnets:
+        - 192.168.1.0/24

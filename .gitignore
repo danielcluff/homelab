@@ -2,6 +2,9 @@
 secrets/
 *.key
 *.pem
+.env
+.env.local
+node_modules/
 
 # OS files
 .DS_Store
@@ -24,3 +27,4 @@ controlplane.yaml
 worker.yaml
 talos-patch.yaml
 current-config.yaml
+talos-patches/*-final.yaml

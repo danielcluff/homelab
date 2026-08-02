@@ -1,294 +1,128 @@
-# Sealed Secrets Setup and Usage Guide
+# Sealed Secrets
 
-This guide shows how to use Bitnami Sealed Secrets to encrypt Kubernetes secrets that can be safely committed to your public GitHub repository.
+This repository uses [Bitnami Sealed Secrets](https://github.com/bitnami/sealed-secrets) for Kubernetes credentials. A `SealedSecret` is encrypted with the cluster controller's public key. It is safe to commit, but only the controller holding the matching private key can decrypt it into a normal Kubernetes `Secret`.
 
-## How It Works
+## Repository layout
 
-1. You create a standard Kubernetes secret manifest
-2. `kubeseal` encrypts it using the cluster's public key
-3. You commit the encrypted `SealedSecret` to git
-4. The Sealed Secrets controller in your cluster decrypts it automatically
-5. Only your cluster can decrypt the secrets (no private keys in git!)
+- `secrets/` contains plaintext input manifests. The entire directory is gitignored and must never be committed.
+- `sealedsecrets/` contains encrypted `SealedSecret` manifests and is safe to commit.
+- Generated Talos configs (`talosconfig`, `controlplane.yaml`, `worker.yaml`, and `talos-patches/*-final.yaml`) also contain credentials and are gitignored. They are not Kubernetes Secrets and should not be processed with `kubeseal`.
 
-## Installation
+The managed secrets are:
 
-### 1. Install the Controller (Already Done)
+| Plaintext input | Encrypted manifest | Resulting Secret | Consumer |
+|---|---|---|---|
+| `secrets/pihole-password.yaml` | `sealedsecrets/pihole-password-sealed.yaml` | `pihole/pihole-password` (`password`) | Pi-hole Helm release |
+| `secrets/cloudflare-secrets.yaml` | `sealedsecrets/cloudflare-secrets-sealed.yaml` | `cert-manager/cloudflare-api-token` (`api-token`) | `letsencrypt-cloudflare` ClusterIssuer |
 
-The Sealed Secrets controller is installed in your cluster and has generated a public/private key pair automatically.
+## Controller installation
 
-```bash
-# Verify installation
-kubectl get pods -n kube-system -l name=sealed-secrets-controller
-```
-
-### 2. Install kubeseal CLI
+The controller runs in `kube-system`. This cluster was installed from the official v0.38.4 release manifest:
 
 ```bash
-# On macOS
-brew install kubeseal
-
-# Or download binary
-wget https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.26.0/kubeseal-0.26.0-darwin-amd64.tar.gz
-tar -xvzf kubeseal-0.26.0-darwin-amd64.tar.gz
-sudo install -m 755 kubeseal /usr/local/bin/kubeseal
+kubectl apply -f https://github.com/bitnami/sealed-secrets/releases/download/v0.38.4/controller.yaml
+kubectl rollout status deployment/sealed-secrets-controller -n kube-system
 ```
 
-## Workflow
-
-### Step 1: Create a Secret Manifest
-
-Create a file with your secret (normal Kubernetes secret format):
-
-```yaml
-# secrets/pihole-password.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: pihole-password
-  namespace: pihole
-type: Opaque
-stringData:
-  password: "your_secure_password_here"
-```
-
-### Step 2: Encrypt It
-
-Use `kubeseal` to encrypt the secret. This uses your cluster's public key to encrypt it:
+Install the client on macOS with `brew install kubeseal`, then verify both sides:
 
 ```bash
-kubeseal -f secrets/pihole-password.yaml -o sealedsecrets/pihole-password-sealed.yaml --format yaml
+kubeseal --version
+kubectl get deployment sealed-secrets-controller -n kube-system
+kubectl get crd sealedsecrets.bitnami.com
 ```
 
-The output (`pihole-password-sealed.yaml`) contains an encrypted `SealedSecret` that can be safely committed to git.
+## Seal or update a secret
 
-### Step 3: Apply to Cluster
-
-Apply the sealed secret to your cluster:
+Strict scope is the default and binds ciphertext to the exact Secret name and namespace. Keep both stable unless you intend to reseal.
 
 ```bash
-kubectl apply -f sealedsecrets/pihole-password-sealed.yaml
+kubeseal \
+  --controller-name sealed-secrets-controller \
+  --controller-namespace kube-system \
+  --format yaml \
+  --secret-file secrets/pihole-password.yaml \
+  --sealed-secret-file sealedsecrets/pihole-password-sealed.yaml
+
+kubeseal \
+  --controller-name sealed-secrets-controller \
+  --controller-namespace kube-system \
+  --format yaml \
+  --secret-file secrets/cloudflare-secrets.yaml \
+  --sealed-secret-file sealedsecrets/cloudflare-secrets-sealed.yaml
 ```
 
-The Sealed Secrets controller will automatically decrypt it and create a regular `Secret` named `pihole-password` in the `pihole` namespace.
-
-### Step 4: Use in Helm Charts
-
-Update your Helm values to reference the secret:
-
-```yaml
-# helm/pihole/values.yaml
-admin:
-  password: ""
-  # Use secret instead
-  existingSecret: "pihole-password"
-  existingSecretKey: "password"
-```
-
-## Complete Example Workflow
-
-### Example: Encrypt Pi-hole Password
+Review only names, namespaces, and encrypted key names before applying; never print plaintext or decoded Kubernetes Secrets:
 
 ```bash
-# 1. Create secret manifest
-cat > secrets/pihole-password.yaml <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: pihole-password
-  namespace: pihole
-type: Opaque
-stringData:
-  password: "super_secure_password_here"
-EOF
-
-# 2. Encrypt it
-kubeseal -f secrets/pihole-password.yaml -o sealedsecrets/pihole-password-sealed.yaml
-
-# 3. Verify the encrypted file
-cat sealedsecrets/pihole-password-sealed.yaml
-
-# 4. Commit to git
-git add sealedsecrets/pihole-password-sealed.yaml
-git commit -m "Add sealed secret for Pi-hole"
-git push
-
-# 5. Apply to cluster
-kubectl apply -f sealedsecrets/pihole-password-sealed.yaml
-
-# 6. Verify the secret was created
-kubectl get secret pihole-password -n pihole
-```
-
-### Example: Encrypt Certificate Keys
-
-```bash
-# Create TLS cert secret
-cat > secrets/tls-cert.yaml <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: tls-cert
-  namespace: traefik
-type: kubernetes.io/tls
-data:
-  tls.crt: $(base64 < cert.pem)
-  tls.key: $(base64 < key.pem)
-EOF
-
-# Encrypt it
-kubeseal -f secrets/tls-cert.yaml -o sealedsecrets/tls-cert-sealed.yaml
-
-# Apply
-kubectl apply -f sealedsecrets/tls-cert-sealed.yaml
-```
-
-## Advanced Usage
-
-### Scope Options
-
-Control where the sealed secret can be decrypted:
-
-```bash
-# Strict scope: Only works in exact namespace/metadata as specified
-kubeseal --scope strict -f secret.yaml
-
-# Namespace-wide: Works in same namespace
-kubeseal --scope namespace-wide -f secret.yaml
-
-# Cluster-wide: Works in any namespace
-kubeseal --scope cluster-wide -f secret.yaml
-```
-
-### Offline Encryption
-
-Export the public key for offline encryption:
-
-```bash
-# Export public key
-kubeseal --fetch-cert > my-public-key.pem
-
-# Encrypt offline (can be done on any machine, even without kubectl access)
-kubeseal --cert my-public-key.pem -f secret.yaml -o sealed-secret.yaml
-```
-
-### Encrypting from stdin
-
-```bash
-echo -n "my_secret_password" | kubectl create secret generic my-secret --dry-run=client --from-file=password=/dev/stdin -o yaml | kubeseal -o sealed-secret.yaml
-```
-
-## Repository Structure
-
-Recommended structure for your homelab:
-
-```
-homelab/
-├── secrets/                 # UNENCRYPTED secrets (NEVER commit this!)
-│   ├── pihole-password.yaml
-│   └── tls-cert.yaml
-├── sealedsecrets/           # ENCRYPTED secrets (SAFE to commit)
-│   ├── pihole-password-sealed.yaml
-│   └── tls-cert-sealed.yaml
-├── helm/                   # Helm charts
-│   ├── pihole/
-│   └── traefik/
-├── manifests/
-└── README.md
-```
-
-### .gitignore
-
-```gitignore
-# Never commit unencrypted secrets
-secrets/
-*.key
-*.pem
-!sealedsecrets/
-```
-
-## Verification
-
-Check that sealed secrets are working:
-
-```bash
-# List sealed secrets
+kubectl apply -f sealedsecrets/
 kubectl get sealedsecrets -A
-
-# List regular secrets (these are created by the controller)
-kubectl get secrets -A
-
-# View a sealed secret (it's encrypted, safe to view)
-kubectl get sealedsecrets pihole-password -n pihole -o yaml
-
-# View the actual secret (only visible to those with cluster access)
-kubectl get secret pihole-password -n pihole -o yaml
+kubectl get secret pihole-password -n pihole
+kubectl get secret cloudflare-api-token -n cert-manager
 ```
 
-## Backup and Recovery
-
-### Backup Public Key
+After changing the Pi-hole secret, restart or upgrade Pi-hole so its environment is recreated:
 
 ```bash
-kubeseal --fetch-cert > sealed-secrets-public-key.pem
+helm upgrade pihole mojo2600/pihole -n pihole -f helm/pihole/values.yaml
 ```
 
-Keep `sealed-secrets-public-key.pem` in a safe place. If you lose your cluster, you'll need to recreate the controller with the same key or re-seal all secrets.
+## Key backup and recovery
 
-### Disaster Recovery
+The controller private key is the recovery key. Back it up to an encrypted password manager or offline encrypted storage; never commit it. The public certificate is safe to distribute but is not sufficient for recovery.
 
-If you lose the Sealed Secrets controller private key:
-
-1. Restore from backup (if you backed up the private key)
-2. Or reinstall the controller and re-seal all your secrets
+List the active recovery-key Secret without displaying its data:
 
 ```bash
-# To re-seal all secrets after controller reinstall
-for file in secrets/*.yaml; do
-  kubeseal -f "$file" -o "sealedsecrets/$(basename $file .yaml)-sealed.yaml"
-done
+kubectl get secrets -n kube-system \
+  -l sealedsecrets.bitnami.com/sealed-secrets-key=active \
+  -o custom-columns=NAME:.metadata.name,CREATED:.metadata.creationTimestamp
 ```
 
-## Common Issues
-
-### "Certificate not found"
+Back it up to a local file and immediately restrict its permissions:
 
 ```bash
-# Wait for controller to be ready and generate certificate
-kubectl wait --for=condition=ready pod -n kube-system -l name=sealed-secrets-controller
+kubectl get secret -n kube-system \
+  -l sealedsecrets.bitnami.com/sealed-secrets-key=active \
+  -o yaml > main.key
+
+chmod 600 main.key
 ```
 
-### "Forbidden: sealedsecrets.bitnami.com is forbidden"
+The command prints nothing to the terminal because `>` redirects the YAML into `main.key`. Do not run `cat main.key`, and do not append `---`; the extra YAML separator is unnecessary.
 
-Make sure you're applying a `SealedSecret` (encrypted), not a regular `Secret` (unencrypted).
-
-### Updates to Sealed Secrets
-
-When you update a secret:
+Confirm the backup exists without displaying its contents:
 
 ```bash
-# 1. Update the original secret file
-# 2. Re-encrypt it
-kubeseal -f secrets/pihole-password.yaml -o sealedsecrets/pihole-password-sealed.yaml
-
-# 3. Apply the updated sealed secret
-kubectl apply -f sealedsecrets/pihole-password-sealed.yaml
-
-# The controller will automatically update the underlying Secret
+test -s main.key && echo "Backup exists"
+stat -f '%z bytes, permissions %Sp' main.key
 ```
 
-## Security Benefits
+The repository ignores `*.key`, but `main.key` should still be moved promptly to encrypted storage outside the repository. For example, write directly to its final secure location instead:
 
-✅ No private keys in git
-✅ Encrypted secrets can be safely committed
-✅ Only your cluster can decrypt secrets
-✅ Audit trail in git of secret changes
-✅ No need for external secret management services
+```bash
+kubectl get secret -n kube-system \
+  -l sealedsecrets.bitnami.com/sealed-secrets-key=active \
+  -o yaml > /secure/offline/location/sealed-secrets-recovery-key.yaml
 
-## Next Steps
+chmod 600 /secure/offline/location/sealed-secrets-recovery-key.yaml
+```
 
-1. Install `kubeseal` CLI
-2. Create a `secrets/` directory for unencrypted secrets (add to .gitignore)
-3. Create a `sealedsecrets/` directory for encrypted secrets (commit to git)
-4. Encrypt your Pi-hole password and other secrets
-5. Update your Helm charts to use sealed secrets
-6. Commit and push to GitHub safely!
+Exporting the public certificate is separate; it supports offline sealing but cannot recover encrypted secrets:
+
+```bash
+kubeseal --fetch-cert > /secure/offline/location/sealed-secrets-public-cert.pem
+```
+
+If the controller key is lost, existing sealed ciphertext cannot be decrypted. Restore the key before the controller starts, or create new plaintext credentials and reseal every secret against the new controller key.
+
+## Commit safety check
+
+Before staging changes:
+
+```bash
+git check-ignore -v secrets/*.yaml talosconfig talos-patches/*-final.yaml
+git status --short --ignored
+```
+
+Only `sealedsecrets/*.yaml` should appear as committable secret material. Rotate any credential immediately if its plaintext was previously committed or pushed; encrypting it now does not remove it from Git history.

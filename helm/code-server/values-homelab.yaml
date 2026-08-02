@@ -1,8 +1,8 @@
 ---
-# Project-specific dev environment template
-# Copy this file and customize for each project
-# Accessible at https://project1.elate.me (customize hostname)
-# Deploy with: helm install code-server-project1 coder/code-server -n devenv -f helm/code-server/values-project1.yaml
+# HomeLab management dev environment
+# Dedicated instance for cluster management
+# Accessible at https://homelab.elate.me
+# Deploy with: helm install code-server-homelab pascaliske/code-server -n devenv -f helm/code-server/values-homelab.yaml
 
 image:
   repository: codercom/code-server
@@ -19,7 +19,7 @@ extraEnvVars:
   - name: TZ
     value: America/Chicago
   - name: PROJECT_NAME
-    value: project1
+    value: homelab
 
 # Service configuration
 service:
@@ -27,7 +27,6 @@ service:
   port: 8080
 
 # Ingress configuration
-# CUSTOMIZE: Change hostname for each project
 ingress:
   enabled: true
   ingressClassName: traefik
@@ -35,26 +34,25 @@ ingress:
     cert-manager.io/cluster-issuer: letsencrypt-cloudflare
     traefik.ingress.kubernetes.io/router.tls: "true"
   hosts:
-    - host: project1.elate.me
+    - host: homelab.elate.me
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: elate.me-tls
       hosts:
-        - project1.elate.me
+        - homelab.elate.me
 
 # Persistence configuration
-# CUSTOMIZE: Adjust size based on project needs
+# Dedicated storage for homelab repo at /home/coder/homelab
 persistence:
   enabled: true
   storageClassName: longhorn
   accessMode: ReadWriteOnce
-  size: 10Gi
-  # Mounts to /home/coder by default
+  size: 20Gi
+  mountPath: /home/coder/homelab
 
 # Extra volumes for shared storage
-# This references the shared PVC created separately
 extraVolumes:
   - name: shared
     persistentVolumeClaim:
@@ -95,7 +93,7 @@ nodeSelector: {}
 # Affinity
 affinity: {}
 
-# Lifecycle hooks to install Claude Code and Open Code
+# Lifecycle hooks to install tools and clone homelab repo
 lifecycle:
   postStart:
     exec:
@@ -103,11 +101,47 @@ lifecycle:
         - /bin/bash
         - -c
         - |
+          # Install git if not present
+          if ! command -v git &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y git
+          fi
+
+          # Clone homelab repo if workspace is empty (first run)
+          REPO_DIR="/home/coder/homelab"
+          REPO_URL="https://github.com/danielcluff/homelab.git"
+          if [ ! -d "$REPO_DIR/.git" ]; then
+            echo "Cloning homelab repository..."
+            git clone "$REPO_URL" "$REPO_DIR.tmp"
+            mv "$REPO_DIR.tmp"/* "$REPO_DIR.tmp"/.[!.]* "$REPO_DIR"/ 2>/dev/null || true
+            rm -rf "$REPO_DIR.tmp"
+          fi
+
           # Install Node.js if not present
           if ! command -v node &> /dev/null; then
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             sudo apt-get install -y nodejs
           fi
+
           # Install Claude Code and Open Code
           sudo npm install -g @anthropic-ai/claude-code opencode-ai || true
           echo "Claude Code and Open Code installation complete"
+
+          # Install kubectl if not present
+          if ! command -v kubectl &> /dev/null; then
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+            rm kubectl
+          fi
+
+          # Install helm if not present
+          if ! command -v helm &> /dev/null; then
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          fi
+
+          # Setup kubeconfig
+          mkdir -p ~/.kube
+          if [ -f /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+            echo "Kubernetes service account detected - kubectl will use in-cluster auth"
+          fi
+
+          echo "HomeLab management tools installation complete"

@@ -1,0 +1,158 @@
+---
+# Tailscale subnet router deployment
+# Exposes 192.168.1.0/24 network to Tailscale VPN for remote access
+# Access: Connect to Tailscale → Access any 192.168.1.x IP and *.elate.me domains
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tailscale
+  namespace: tailscale
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tailscale
+  namespace: tailscale
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale
+  namespace: tailscale
+subjects:
+  - kind: ServiceAccount
+    name: tailscale
+    namespace: tailscale
+roleRef:
+  kind: Role
+  name: tailscale
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tailscale-state
+  namespace: tailscale
+  labels:
+    app: tailscale
+    component: subnet-router
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tailscale-subnet-router
+  namespace: tailscale
+  labels:
+    app: tailscale
+    component: subnet-router
+spec:
+  serviceName: tailscale-subnet-router
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tailscale
+      component: subnet-router
+  template:
+    metadata:
+      labels:
+        app: tailscale
+        component: subnet-router
+    spec:
+      serviceAccountName: tailscale
+      # Run on host network to access physical subnet for routing
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      # Allow scheduling on control plane node (single-node cluster)
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: tailscale
+          image: tailscale/tailscale:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # Auth key from secret
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-auth
+                  key: TS_AUTHKEY
+            # Advertise subnet routes (192.168.1.0/24)
+            - name: TS_ROUTES
+              value: "192.168.1.0/24"
+            # Accept DNS configuration from Tailscale
+            - name: TS_ACCEPT_DNS
+              value: "true"
+            # State directory for persistence
+            - name: TS_STATE_DIR
+              value: "/var/lib/tailscale"
+            # Hostname for Tailscale device
+            - name: TS_HOSTNAME
+              value: "homelab-k8s-subnet-router"
+            # Use kernel networking for better performance
+            - name: TS_USERSPACE
+              value: "false"
+            # Tag for ACL and auto-approval
+            - name: TS_EXTRA_ARGS
+              value: "--advertise-tags=tag:subnet-router"
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+                - SYS_MODULE
+          volumeMounts:
+            - name: state
+              mountPath: /var/lib/tailscale
+            - name: dev-net-tun
+              mountPath: /dev/net/tun
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: tailscale-state
+        - name: dev-net-tun
+          hostPath:
+            path: /dev/net/tun
+            type: CharDevice
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: tailscale-subnet-router
+  namespace: tailscale
+  labels:
+    app: tailscale
+    component: subnet-router
+spec:
+  clusterIP: None
+  selector:
+    app: tailscale
+    component: subnet-router
+  ports:
+    - name: unused
+      port: 1
+      targetPort: 1

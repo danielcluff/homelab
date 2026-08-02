@@ -1,6 +1,6 @@
 ---
 # Main dev environment configuration
-# Accessible at https://dev.home.com
+# Accessible at https://dev.elate.me
 # Deploy with: helm install code-server-main coder/code-server -n devenv -f helm/code-server/values-main.yaml
 
 image:
@@ -31,17 +31,17 @@ ingress:
   enabled: true
   ingressClassName: traefik
   annotations:
-    cert-manager.io/cluster-issuer: selfsigned-issuer
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
     traefik.ingress.kubernetes.io/router.tls: "true"
   hosts:
-    - host: dev.home.com
+    - host: dev.elate.me
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: home.com-tls
+    - secretName: elate.me-tls
       hosts:
-        - dev.home.com
+        - dev.elate.me
 
 # Persistence configuration
 persistence:
@@ -49,6 +49,7 @@ persistence:
   storageClassName: longhorn
   accessMode: ReadWriteOnce
   size: 20Gi
+  existingClaim: devenv-main-workspace
   # Mounts to /home/coder by default
 
 # Extra volumes for shared storage
@@ -91,3 +92,20 @@ nodeSelector: {}
 
 # Affinity
 affinity: {}
+
+# Lifecycle hooks to install Claude Code and Open Code
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - /bin/bash
+        - -c
+        - |
+          # Install Node.js if not present
+          if ! command -v node &> /dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
+          # Install Claude Code and Open Code
+          sudo npm install -g @anthropic-ai/claude-code opencode-ai || true
+          echo "Claude Code and Open Code installation complete"

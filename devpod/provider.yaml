@@ -1,0 +1,13 @@
+name: kubernetes
+executable: devpod
+version: v0.5.0
+description: "Kubernetes provider for homelab cluster"
+
+agent:
+  driver: kubernetes
+  kubernetes:
+    namespace: devpod
+    context: homelab-007
+    serviceAccount: devpod-workspace
+    persistentVolumeSize: 20Gi
+    storageClass: longhorn

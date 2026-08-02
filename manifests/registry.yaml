@@ -1,0 +1,136 @@
+---
+# Docker Registry deployment
+# Access: https://registry.elate.me
+# Usage: docker push registry.elate.me/myimage:tag
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: registry
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-data
+  namespace: registry
+  labels:
+    app: registry
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry
+  namespace: registry
+  labels:
+    app: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: registry
+          image: registry:2
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            - name: REGISTRY_STORAGE_DELETE_ENABLED
+              value: "true"
+            - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin
+              value: "[https://registry.elate.me]"
+            - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods
+              value: "[HEAD, GET, OPTIONS, DELETE]"
+            - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers
+              value: "[Authorization, Accept, Cache-Control]"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/registry
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: registry-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+  namespace: registry
+  labels:
+    app: registry
+spec:
+  type: LoadBalancer
+  loadBalancerIP: "192.168.1.53"
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP
+      name: http
+  selector:
+    app: registry
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: registry
+  namespace: registry
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    # Allow large image pushes
+    traefik.ingress.kubernetes.io/buffering: |
+      maxrequestbodybytes: 0
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  labels:
+    app: registry
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: registry.elate.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: registry
+                port:
+                  number: 5000
+  tls:
+    - secretName: elate.me-tls
+      hosts:
+        - registry.elate.me

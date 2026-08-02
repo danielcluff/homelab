@@ -15,11 +15,11 @@ defaultSettings:
   ingress:
     enabled: true
     ingressClassName: traefik
-    host: longhorn.home.com
+    host: longhorn.elate.me
     tls: true
-    tlsSecret: home.com-tls
+    tlsSecret: elate.me-tls
     annotations:
-      cert-manager.io/cluster-issuer: selfsigned-issuer
+      cert-manager.io/cluster-issuer: letsencrypt-cloudflare
       traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
       traefik.ingress.kubernetes.io/router.tls: "true"
 

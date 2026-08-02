@@ -1,6 +1,6 @@
 ---
 # Heimdall dashboard configuration for homelab
-# Accessible at https://home.com
+# Accessible at https://dashboard.elate.me
 
 image:
   repository: linuxserver/heimdall
@@ -23,22 +23,17 @@ ingress:
   main:
     enabled: true
     annotations:
-      cert-manager.io/cluster-issuer: selfsigned-issuer
+      cert-manager.io/cluster-issuer: letsencrypt-cloudflare
       traefik.ingress.kubernetes.io/router.tls: "true"
     hosts:
-      - host: home.com
-        paths:
-          - path: /
-            pathType: Prefix
-      - host: dashboard.home.com
+      - host: dashboard.elate.me
         paths:
           - path: /
             pathType: Prefix
     tls:
-      - secretName: home.com-tls
+      - secretName: elate.me-tls
         hosts:
-          - home.com
-          - dashboard.home.com
+          - dashboard.elate.me
 
 persistence:
   config:

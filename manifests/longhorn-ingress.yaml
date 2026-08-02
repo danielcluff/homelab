@@ -4,12 +4,12 @@ metadata:
   name: longhorn-ingress
   namespace: longhorn-system
   annotations:
-    cert-manager.io/cluster-issuer: selfsigned-issuer
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   rules:
-  - host: longhorn.home.com
+  - host: longhorn.elate.me
     http:
       paths:
       - backend:
@@ -21,5 +21,5 @@ spec:
         pathType: ImplementationSpecific
   tls:
   - hosts:
-    - longhorn.home.com
-    secretName: home.com-tls
+    - longhorn.elate.me
+    secretName: elate.me-tls

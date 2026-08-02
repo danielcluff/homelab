@@ -1,0 +1,35 @@
+---
+# Service account for homelab code-server
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: code-server-homelab
+  namespace: devenv
+---
+# ClusterRole for cluster management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: code-server-homelab-manager
+rules:
+  # Allow all operations on all resources (cluster admin for management)
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  # Allow all non-resource URLs
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+---
+# ClusterRoleBinding to grant permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: code-server-homelab-manager-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: code-server-homelab-manager
+subjects:
+  - kind: ServiceAccount
+    name: code-server-homelab
+    namespace: devenv

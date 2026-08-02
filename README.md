@@ -2,19 +2,19 @@
 
 Repository for managing a Kubernetes homelab cluster running on Talos Linux.
 
-**⚠️ IMPORTANT NOTE**: Currently running single-node cluster with control plane node configured to host LoadBalancer services by removing `node.kubernetes.io/exclude-from-external-load-balancers` label. **When adding additional nodes, revert this change** to follow Kubernetes best practices and prevent control plane nodes from hosting external load balancers.
+**Cluster**: 3 nodes (1 control plane + 2 workers) running Talos v1.11.6 / Kubernetes v1.34.1
 
-See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details.
+See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details on LoadBalancer configuration.
 
 ## Table of Contents
 
 -   [Infrastructure Overview](#infrastructure-overview)
 -   [Deployed Services](#deployed-services)
+-   [Monitoring Stack](#monitoring-stack)
 -   [Development Environments](#development-environments)
 -   [Network Configuration](#network-configuration)
 -   [Getting Started](#getting-started)
 -   [Service Access](#service-access)
-    -   [Importing Self-Signed CA Certificate](#importing-self-signed-ca-certificate)
 -   [Useful Commands](#useful-commands)
 -   [Adding New Services](#adding-new-services)
 -   [Tailscale Integration](#tailscale-integration)
@@ -28,22 +28,31 @@ See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details.
 ### Hardware
 
 -   **Debian Box**: 192.168.1.40 (management/utility server)
-    78-55-36-04-92-B3
 
--   **Talos Node**: 192.168.1.41 (Kubernetes control plane + worker)
+-   **Talos Control Plane**: 192.168.1.41
     -   Cluster name: `homelab-007`
     -   Disk: `/dev/nvme0n1`
     -   Static IP configuration
-    -   iSCSI support enabled for Longhorn storage
-        78-55-36-05-36-9B
+    -   Kernel modules: nbd, iscsi_tcp, configfs (for Longhorn)
+
+-   **Talos Worker 1**: 192.168.1.42
+    -   Disk: `/dev/nvme0n1`
+    -   Static IP configuration
+
+-   **Talos Worker 2**: 192.168.1.43
+    -   Disk: `/dev/nvme0n1`
+    -   Static IP configuration
+
+All nodes use network interface `enp2s0` with gateway `192.168.1.1`.
 
 ### Network Details
 
 -   **Gateway**: 192.168.1.1
 -   **DNS (Router)**: 192.168.1.1
 -   **DNS (Pi-hole)**: 192.168.1.51
--   **NTP Server**: 97.107.136.23
 -   **MetalLB IP Pool**: 192.168.1.50-99 (50 addresses for LoadBalancer services)
+-   **Pod Network**: 10.244.0.0/16
+-   **Service Network**: 10.96.0.0/12
 
 ---
 
@@ -56,19 +65,19 @@ See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details.
 **Configuration**:
 
 -   Namespace: `cert-manager`
--   Type: ClusterIssuer (self-signed)
--   Certificate: Wildcard `*.home.com`
--   Config files: `manifests/cluster-issuer.yaml`, `manifests/wildcard-cert.yaml`
+-   ClusterIssuers: `letsencrypt-cloudflare` (primary), `selfsigned-issuer` (fallback)
+-   Certificate: Wildcard `*.elate.me` via Let's Encrypt with Cloudflare DNS-01 validation
+-   Config files: `manifests/letsencrypt-cloudflare-issuer.yaml`, `manifests/wildcard-cert-letsencrypt.yaml`, `manifests/cluster-issuer.yaml`
 
-**Status**: ✅ Running
+**Status**: Running
 
 **Features**:
 
--   Automatic certificate provisioning
--   Self-signed wildcard certificate for `*.home.com`
--   Certificate renewal every 90 days
--   TLS secrets distributed to all service namespaces
--   TLS secrets distributed to all namespaces (heimdall, pihole, longhorn-system)
+-   Automatic certificate provisioning via Let's Encrypt
+-   Wildcard certificate for `*.elate.me` and `elate.me`
+-   Certificate renewal every 90 days (renews 15 days before expiry)
+-   Cloudflare DNS-01 challenge solver
+-   TLS secret `elate.me-tls` referenced by all ingresses
 
 ### 1. MetalLB Load Balancer
 
@@ -82,17 +91,16 @@ See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details.
 -   Interface: `enp2s0` (physical network interface)
 -   Config files: `helm/metallb/values.yaml`, `helm/metallb/ipaddresspool.yaml`
 
-**Status**: ✅ Running
+**Status**: Running
 
-#### Critical Configuration for Talos Linux
+#### Configuration for Talos Linux
 
-**⚠️ REQUIRED FOR SINGLE-NODE CLUSTERS**: Talos Linux automatically applies the `node.kubernetes.io/exclude-from-external-load-balancers` label to control plane nodes (Kubernetes best practice for production multi-node clusters). For single-node homelabs where the control plane must host services, MetalLB must be configured to **ignore** this label.
+Talos Linux automatically applies the `node.kubernetes.io/exclude-from-external-load-balancers` label to control plane nodes. MetalLB is configured to ignore this label so services can be announced from all nodes.
 
-**Correct Solution** (configured in `helm/metallb/values.yaml`):
+**Configuration** (in `helm/metallb/values.yaml`):
 
 ```yaml
 speaker:
-  # Critical for Talos: ignore the exclude-from-external-load-balancers label
   ignoreExcludeLB: true
   tolerations:
     - key: node-role.kubernetes.io/control-plane
@@ -104,8 +112,8 @@ speaker:
   extraArgs:
     - --protocol=layer2
     - --arping-interval=10
-    - --arping-interface=enp2s0  # Must match your network interface
-    - --arping-ip-address=192.168.1.41  # Node IP
+    - --arping-interface=enp2s0
+    - --arping-ip-address=192.168.1.41
 ```
 
 **Deployment**:
@@ -123,7 +131,6 @@ kubectl apply -f helm/metallb/ipaddresspool.yaml
 
 # Verify speaker is running with ignoreExcludeLB enabled
 helm get values metallb -n metallb-system | grep ignoreExcludeLB
-# Should output: ignoreExcludeLB: true
 ```
 
 **Verification**:
@@ -131,7 +138,6 @@ helm get values metallb -n metallb-system | grep ignoreExcludeLB
 ```bash
 # Check MetalLB pods are running
 kubectl get pods -n metallb-system
-# Expected: controller (1/1 Running), speaker (4/4 Running)
 
 # Check IP pool is configured
 kubectl get ipaddresspool -n metallb-system
@@ -139,96 +145,58 @@ kubectl get l2advertisement -n metallb-system
 
 # Check services have LoadBalancer IPs assigned
 kubectl get svc -A | grep LoadBalancer
-# Should show EXTERNAL-IP for Traefik (192.168.1.50) and Pi-hole (192.168.1.51)
 
-# Test connectivity from external network
-ping -c 3 192.168.1.50  # Should respond
-curl http://192.168.1.50  # Should get 404 from Traefik (expected)
-curl http://192.168.1.51  # Should get Pi-hole web interface
-
-# Check announcement events
-kubectl get events -n traefik --sort-by='.lastTimestamp' | grep nodeAssigned
-# Should show: "announcing from node talos-fy9-w02 with protocol layer2"
+# Test connectivity
+ping -c 3 192.168.1.50
+curl -I http://192.168.1.50
 ```
 
 #### Optional Talos Network Sysctls
 
-For optimal MetalLB L2 performance, these sysctls can be applied (already configured on this cluster):
+For optimal MetalLB L2 performance, these sysctls are applied on all nodes:
 
-```bash
-# Create sysctl patch file
-cat > /tmp/metallb-sysctls-patch.yaml <<EOF
+```yaml
 machine:
   sysctls:
     net.ipv4.conf.all.arp_announce: "0"
     net.ipv4.conf.all.arp_ignore: "0"
     net.ipv4.ip_forward: "1"
-EOF
-
-# Apply to Talos node (no reboot required)
-talosctl --talosconfig=./talosconfig --nodes 192.168.1.41 patch machineconfig -p @/tmp/metallb-sysctls-patch.yaml
 ```
 
 #### Troubleshooting MetalLB on Talos
 
 **Problem**: LoadBalancer IPs assigned but not accessible from network
 
-**Symptoms**:
-- Services show EXTERNAL-IP in `kubectl get svc`
-- Cannot ping or access LoadBalancer IPs from external network
-- `arp -a` shows incomplete entries for LoadBalancer IPs
-- No "announcing from node" events in service events
-
 **Root Cause**: `speaker.ignoreExcludeLB` not set to `true`
 
 **Solution**:
 
 ```bash
-# Method 1: Upgrade existing installation
 helm upgrade metallb metallb/metallb -n metallb-system --set speaker.ignoreExcludeLB=true --reuse-values
-
-# Method 2: Edit values.yaml and reinstall
-# Add "ignoreExcludeLB: true" under speaker section, then:
-helm upgrade metallb metallb/metallb -n metallb-system -f helm/metallb/values.yaml
-
-# Wait for speaker to restart
 kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/component=speaker --timeout=60s
-
-# Verify the fix
-kubectl get events -n traefik --sort-by='.lastTimestamp' | grep -i announce
-# Should show fresh "announcing from node" events
-
-# Test connectivity
-curl -I http://192.168.1.50  # Should return HTTP headers
 ```
-
-**Why This Works**: The `ignoreExcludeLB: true` setting tells MetalLB speaker to announce services even on nodes with the `exclude-from-external-load-balancers` label. This is essential for single-node Talos clusters where the control plane must host workloads.
-
-**⚠️ When Adding Worker Nodes**: Once you have dedicated worker nodes, you can remove `ignoreExcludeLB: true` to follow Kubernetes best practices and let only worker nodes announce LoadBalancer services.
 
 ### 2. Traefik Ingress Controller
 
-**Purpose**: HTTPS ingress controller and reverse proxy for `*.home.com` domains
+**Purpose**: HTTPS ingress controller and reverse proxy for `*.elate.me` domains
 
 **Configuration**:
 
 -   Namespace: `traefik`
 -   External IP: `192.168.1.50` (from MetalLB)
--   Ports:
-    -   HTTP: 80
-    -   HTTPS: 443
--   Dashboard: `https://traefik.home.com`
+-   Ports: HTTP 80, HTTPS 443
+-   Dashboard: `https://traefik.elate.me`
 -   Config files: `helm/traefik/values.yaml`
--   TLS: Self-signed wildcard certificate for `*.home.com`
+-   TLS: Let's Encrypt wildcard certificate for `*.elate.me`
 
-**Status**: ✅ Running
+**Status**: Running
 
 **Features**:
 
 -   Automatic routing for Kubernetes Ingress resources
 -   Dashboard for monitoring routes
--   SSL/TLS enabled with self-signed certificates (cert-manager)
--   All services configured for HTTPS-only (HTTP blocked)
+-   TLS with Let's Encrypt certificates via cert-manager
+-   Access and general logging enabled
 
 ### 3. Longhorn Distributed Storage
 
@@ -238,20 +206,19 @@ curl -I http://192.168.1.50  # Should return HTTP headers
 
 -   Namespace: `longhorn-system`
 -   Storage Class: `longhorn` (default)
--   Replica Count: 1 (single node)
+-   Replica Count: 1
 -   Data Path: `/var/lib/longhorn`
--   Dashboard: `https://longhorn.home.com`
+-   Dashboard: `https://longhorn.elate.me`
 -   Config files: `helm/longhorn/values.yaml`, `manifests/longhorn-ingress.yaml`
 
-**Status**: ⚠️ Initializing (completing in background)
+**Status**: Running
 
 **Features**:
 
--   Persistent volume provisioning
+-   Default persistent volume provisioner
 -   Web-based management UI
 -   Snapshot and backup support
--   Will be fully operational once initialization completes
--   HTTPS-only access with self-signed certificate
+-   Requires kernel modules: nbd, iscsi_tcp, configfs (configured in Talos patches)
 
 ### 4. Pi-hole DNS & Ad Blocker
 
@@ -262,27 +229,30 @@ curl -I http://192.168.1.50  # Should return HTTP headers
 -   Namespace: `pihole`
 -   External IP: `192.168.1.51` (from MetalLB)
 -   DNS Ports: 53/TCP, 53/UDP
--   Web UI: `https://pihole.home.com/admin` or `http://192.168.1.51/admin`
--   Admin Password: `password` ⚠️ **CHANGE THIS!**
--   Upstream DNS: 192.168.1.1 (router), 1.1.1.1 (Cloudflare)
+-   Web UI: `https://pihole.elate.me/admin`
+-   Upstream DNS: 1.1.1.1 (Cloudflare), 8.8.8.8 (Google)
 -   Config files: `helm/pihole/values.yaml`, `manifests/pihole-ingress.yaml`
+-   Storage: 5Gi Longhorn PVC
 
-**Status**: ✅ Running (without persistence - will be added when Longhorn is ready)
+**Status**: Running
 
 **Features**:
 
 -   Network-wide ad blocking
--   Local DNS resolution
--   HTTPS-only access with self-signed certificate
+-   Local DNS resolution for all `*.elate.me` services
+-   Persistent storage via Longhorn
 
-**Pre-configured DNS Records**:
+**Custom DNS Entries** (configured in `helm/pihole/values.yaml`):
 
--   `home.com` → 192.168.1.50
--   `dashboard.home.com` → 192.168.1.50
--   `traefik.home.com` → 192.168.1.50
--   `longhorn.home.com` → 192.168.1.50
--   `pihole.home.com` → 192.168.1.51
--   Default: `*.home.com` → 192.168.1.50 (routed via Traefik)
+-   `dashboard.elate.me` → 192.168.1.50
+-   `traefik.elate.me` → 192.168.1.50
+-   `longhorn.elate.me` → 192.168.1.50
+-   `pihole.elate.me` → 192.168.1.51
+-   `dev.elate.me` → 192.168.1.50
+-   `homelab.elate.me` → 192.168.1.50
+-   `grafana.elate.me` → 192.168.1.50
+-   `uptime.elate.me` → 192.168.1.50
+-   `audio.elate.me` → 192.168.1.50
 
 ### 5. Heimdall Application Dashboard
 
@@ -291,18 +261,161 @@ curl -I http://192.168.1.50  # Should return HTTP headers
 **Configuration**:
 
 -   Namespace: `heimdall`
--   URL: `https://home.com` and `https://dashboard.home.com`
+-   URL: `https://dashboard.elate.me`
 -   Config files: `helm/heimdall/values.yaml`
--   TLS: Self-signed wildcard certificate for `*.home.com`
+-   Storage: 1Gi Longhorn PVC
 
-**Status**: ✅ Running
+**Status**: Running
 
 **Features**:
 
 -   Centralized application launcher
 -   Add/manage homelab services via web UI
--   HTTPS-only access with self-signed certificate
 -   Customizable dashboards and themes
+
+### 6. Docker Registry
+
+**Purpose**: Local container image registry for cluster workloads
+
+**Configuration**:
+
+-   Namespace: `registry`
+-   External IP: `192.168.1.53` (from MetalLB, port 5000)
+-   URL: `https://registry.elate.me`
+-   Storage: 50Gi Longhorn PVC
+-   Config files: `manifests/registry.yaml`
+
+**Status**: Running
+
+**Features**:
+
+-   Docker Registry v2
+-   Image deletion enabled
+-   CORS configured for web access
+-   Used by Moseca for container images
+
+### 7. Moseca (Audio Processing)
+
+**Purpose**: Audio processing application
+
+**Configuration**:
+
+-   Namespace: `moseca`
+-   URL: `https://audio.elate.me`
+-   Image: `192.168.1.53:5000/moseca:latest` (from local registry)
+-   Config files: `manifests/moseca.yaml`
+
+**Status**: Running
+
+---
+
+## Monitoring Stack
+
+### Overview
+
+Complete monitoring solution for observability, metrics, and uptime tracking.
+
+**Configuration**:
+
+-   Namespace: `monitoring` (Grafana, Prometheus), `uptime-kuma` (Uptime Kuma)
+-   Grafana: `https://grafana.elate.me`
+-   Uptime Kuma: `https://uptime.elate.me`
+-   Prometheus: Internal only
+-   Documentation: `MONITORING_SETUP.md`, `QUICK_START_MONITORING.md`
+
+**Status**: Deployed and operational
+
+### Components
+
+#### Grafana - Metrics Visualization
+
+-   **URL**: `https://grafana.elate.me`
+-   **Authentication**: Use the current Grafana administrator account; credentials are not stored in this repository
+-   **Namespace**: `monitoring`
+-   **Storage**: 5Gi Longhorn PVC
+-   **Datasources**: Automatically provisioned (Prometheus, Alertmanager)
+
+**Features**:
+-   Pre-configured Prometheus datasource
+-   Import dashboards from https://grafana.com/grafana/dashboards/
+-   Persistent storage for dashboards and settings
+
+#### Prometheus - Metrics Collection
+
+-   **URL**: Internal only (`http://prometheus-server.monitoring.svc.cluster.local`)
+-   **Namespace**: `monitoring`
+-   **Components**: Server, Alertmanager, Node Exporter, Kube State Metrics, Pushgateway
+
+**Features**:
+-   Kubernetes cluster metrics
+-   Node-level metrics via Node Exporter
+-   Alert management via Alertmanager
+-   Automatic service discovery
+
+#### Uptime Kuma - Uptime Monitoring
+
+-   **URL**: `https://uptime.elate.me`
+-   **Namespace**: `uptime-kuma`
+-   **Storage**: 5Gi Longhorn PVC
+-   **Monitors**: Programmatically configured
+
+**Features**:
+-   HTTP/HTTPS monitoring
+-   Status pages
+-   90+ notification integrations
+-   2FA support
+
+### Programmatic Setup
+
+Both Grafana and Uptime Kuma support programmatic configuration:
+
+#### Grafana Datasources
+
+**Automatic**: Datasources are provisioned via ConfigMap on pod startup.
+
+**Location**: `manifests/grafana-datasources.yaml`
+
+**Configured Datasources**:
+-   Prometheus (default)
+-   Alertmanager
+
+**Add more datasources**: Edit the ConfigMap and restart Grafana:
+```bash
+kubectl apply -f manifests/grafana-datasources.yaml
+kubectl rollout restart deployment grafana -n monitoring
+```
+
+#### Uptime Kuma Monitors
+
+**Setup**: Run after initial account creation at https://uptime.elate.me
+
+```bash
+cd scripts
+npm install
+node setup-uptime-kuma-socketio.js
+```
+
+This creates monitors for:
+-   All `*.elate.me` services (Heimdall, Grafana, Longhorn, Pi-hole, Traefik, dev environments)
+-   Internal services (Prometheus, Alertmanager)
+
+**Customize**: Edit `scripts/setup-uptime-kuma-socketio.js` to add/remove monitors.
+
+### Documentation
+
+-   **Quick Start**: See `QUICK_START_MONITORING.md` for step-by-step setup
+-   **Detailed Guide**: See `MONITORING_SETUP.md` for advanced configuration
+-   **Scripts**: Located in `scripts/` directory
+
+### Recommended Dashboards
+
+Import these popular Grafana dashboards:
+
+-   **Kubernetes Cluster Monitoring**: Dashboard ID 315
+-   **Node Exporter Full**: Dashboard ID 1860
+-   **Prometheus Stats**: Dashboard ID 3662
+
+Import via Grafana UI: Configuration → Data sources → Import → Enter Dashboard ID
 
 ---
 
@@ -316,17 +429,15 @@ Development environments using **code-server** (VS Code in browser) for remote d
 
 -   Namespace: `devenv`
 -   IDE: code-server (VS Code in browser)
--   Main Environment: `https://dev.home.com`
--   Project-specific: `https://project1.home.com`, etc.
+-   Main Environment: `https://dev.elate.me`
+-   Homelab Management: `https://homelab.elate.me`
 -   Storage: Longhorn persistent volumes
 -   Documentation: `helm/code-server/README.md`
-
-**Status**: 🚧 Not yet deployed (configuration files ready)
 
 ### Architecture
 
 ```
-Browser (https://dev.home.com)
+Browser (https://dev.elate.me)
     ↓
 Traefik Ingress (TLS via cert-manager)
     ↓
@@ -358,11 +469,6 @@ helm repo update
 # Create namespace
 kubectl create namespace devenv
 
-# Copy TLS certificate
-kubectl get secret home.com-tls -n heimdall -o yaml | \
-  sed 's/namespace: heimdall/namespace: devenv/' | \
-  kubectl apply -f -
-
 # Create shared storage
 kubectl apply -f manifests/devenv-shared-pvc.yaml
 ```
@@ -375,19 +481,12 @@ helm install code-server-main coder/code-server \
   -n devenv \
   -f helm/code-server/values-main.yaml
 
-# Update Pi-hole DNS (add to helm/pihole/values.yaml customDnsEntries)
-# - address: 192.168.1.50
-#   domain: dev.home.com
-
-# Upgrade Pi-hole
-helm upgrade pihole mojo2600/pihole -n pihole -f helm/pihole/values.yaml
-
-# Access at: https://dev.home.com
+# Access at: https://dev.elate.me
 ```
 
 ### Access Methods
 
-1. **Browser IDE**: `https://dev.home.com`
+1. **Browser IDE**: `https://dev.elate.me`
 2. **Terminal in browser**: Built-in terminal in VS Code
 3. **kubectl exec**: `kubectl exec -it -n devenv deployment/code-server-main -- bash`
 4. **Port-forward**: `kubectl port-forward -n devenv svc/code-server-main 8080:8080`
@@ -399,7 +498,7 @@ helm upgrade pihole mojo2600/pihole -n pihole -f helm/pihole/values.yaml
 cp helm/code-server/values-project1.yaml helm/code-server/values-myproject.yaml
 
 # 2. Edit values-myproject.yaml:
-#    - Change hostname (e.g., myproject.home.com)
+#    - Change hostname (e.g., myproject.elate.me)
 #    - Update PROJECT_NAME env var
 #    - Adjust storage size if needed
 
@@ -422,22 +521,110 @@ See detailed documentation in `helm/code-server/README.md` for:
 
 ---
 
+### DevPod (VS Code Desktop)
+
+### Overview
+
+Development environments using **DevPod** for remote development with full IDE support. Unlike code-server (web-based), DevPod runs client-side and creates dynamic workspaces in Kubernetes.
+
+**Configuration**:
+
+-   Namespace: `devpod`
+-   IDE: VS Code Desktop (full-featured local IDE)
+-   Access: SSH tunneling from local machine to Kubernetes pods
+-   Storage: Longhorn persistent volumes (20Gi per workspace)
+-   Documentation: `devpod/README.md`
+
+**Status**: Ready to deploy (configuration files created)
+
+### Architecture
+
+```
+Local Machine
+    ↓
+DevPod CLI
+    ↓
+Kubernetes Cluster (devpod namespace)
+    ↓
+Workspace Pod
+    ├─ Workspace PVC (20Gi Longhorn)
+    ├─ Development Tools (Docker, Node, Python)
+    └─ VS Code Server
+```
+
+### Access Methods
+
+1.  **VS Code Desktop** (Primary): `devpod up --id my-workspace . --ide vscode`
+2.  **SSH** (Alternative): `ssh my-workspace.devpod`
+3.  **Port Forwarding**: `devpod ssh my-workspace -L 3000:localhost:3000`
+4.  **kubectl exec** (Debugging): `kubectl exec -it -n devpod <pod-name> -- bash`
+
+### Quick Start
+
+**Cluster Setup (one-time):**
+
+```bash
+# Create namespace and RBAC
+kubectl create namespace devpod
+kubectl apply -f manifests/devpod-rbac.yaml
+
+# Configure pod security
+kubectl label namespace devpod pod-security.kubernetes.io/enforce=privileged
+kubectl label namespace devpod pod-security.kubernetes.io/audit=privileged
+kubectl label namespace devpod pod-security.kubernetes.io/warn=privileged
+```
+
+**Client Setup (per developer):**
+
+```bash
+# Install DevPod CLI
+brew install devpod
+
+# Install VS Code + SSH extension
+code --install-extension ms-vscode-remote.remote-ssh
+
+# Configure provider
+cp devpod/provider.yaml ~/.devpod/provider/kubernetes.yaml
+devpod provider add kubernetes
+```
+
+**Create workspace:**
+
+```bash
+devpod up --id devpod-primary . --ide vscode
+```
+
+### Comparison with code-server
+
+| Feature | DevPod | code-server |
+|----------|----------|-------------|
+| **IDE** | VS Code Desktop | VS Code in Browser |
+| **Access** | SSH + VS Code Client | Web URL (dev.elate.me) |
+| **Performance** | Local IDE, remote workspace | Everything in browser |
+| **Setup** | Install DevPod CLI | Kubernetes deployment |
+| **Use Case** | Daily development | Quick access, testing |
+
+**Documentation**: See `devpod/README.md` for complete DevPod setup and usage guide.
+
 ## Network Configuration
 
 ### IP Address Allocation
 
 | Service      | IP Address      | Ports   | Purpose                    |
 | ------------ | --------------- | ------- | -------------------------- |
-| Talos Node   | 192.168.1.41    | 6443    | Kubernetes API Server      |
-| Debian Box   | 192.168.1.87    | -       | Management/Utility Server  |
+| Control Plane| 192.168.1.41    | 6443    | Kubernetes API Server      |
+| Worker 1     | 192.168.1.42    | -       | Kubernetes worker          |
+| Worker 2     | 192.168.1.43    | -       | Kubernetes worker          |
+| Debian Box   | 192.168.1.40    | -       | Management/Utility Server  |
 | Traefik      | 192.168.1.50    | 80, 443 | Ingress Controller         |
 | Pi-hole      | 192.168.1.51    | 53, 80  | DNS & Web UI               |
+| Registry     | 192.168.1.53    | 5000    | Docker Registry            |
 | MetalLB Pool | 192.168.1.50-99 | -       | Available for new services |
 
 ### DNS Resolution Flow
 
 ```
-Client Request (e.g., grafana.home.com)
+Client Request (e.g., grafana.elate.me)
     ↓
 Pi-hole DNS (192.168.1.51)
     ↓
@@ -461,9 +648,6 @@ Backend service
 ### Connect to Cluster
 
 ```bash
-# Copy talosconfig from Debian box (first time only)
-scp daniel@192.168.1.87:~/talosconfig ~/dev/homelab/talosconfig
-
 # Configure talosctl
 talosctl --talosconfig=./talosconfig config endpoints 192.168.1.41
 
@@ -509,70 +693,30 @@ Once DNS is configured:
 
 ```bash
 # Heimdall Dashboard
-https://home.com
-# or
-https://dashboard.home.com
+https://dashboard.elate.me
 
 # Pi-hole Admin
-https://pihole.home.com/admin
+https://pihole.elate.me/admin
 
 # Traefik Dashboard
-https://traefik.home.com
+https://traefik.elate.me
 
 # Longhorn UI
-https://longhorn.home.com
+https://longhorn.elate.me
+
+# Grafana
+https://grafana.elate.me
+
+# Uptime Kuma
+https://uptime.elate.me
 ```
-
-**Note**: Services are now accessible via HTTPS with self-signed certificates. You will see browser warnings that can be safely dismissed since you control the certificate.
-
-### Importing Self-Signed CA Certificate
-
-To eliminate browser warnings for all `*.home.com` services, import the CA certificate into your browser's trusted store:
-
-#### Step 1: Export CA Certificate
-
-```bash
-# Export CA certificate from any namespace (heimdall, pihole, or longhorn-system)
-kubectl get secret home.com-tls -n heimdall -o jsonpath='{.data.ca\.crt}' | base64 -d > ca.crt
-```
-
-#### Step 2: Import into Browser
-
-**Chrome/Edge/Brave (Chromium-based):**
-
-1. Open `chrome://settings/certificates` or `edge://settings/certificates`
-2. Go to "Authorities" tab
-3. Click "Import"
-4. Select the `ca.crt` file you exported
-5. Check "Trust this certificate for identifying websites"
-6. Click OK
-
-**Firefox:**
-
-1. Open `about:preferences#privacy` → Certificates → Authorities
-2. Click "Import..."
-3. Select the `ca.crt` file
-4. Check "Trust this CA to identify websites"
-5. Click OK
-
-**Safari (macOS):**
-
-1. Open Keychain Access (Applications → Utilities)
-2. Drag `ca.crt` file into System keychain
-3. Double-click the imported certificate
-4. Set "Trust" → "When using this certificate" → "Always Trust"
-5. Close windows (you may need to enter your password)
-
-#### Verify Import
-
-After importing, refresh any `*.home.com` page - the security warning should be gone and you'll see the secure lock icon.
 
 ### Test DNS Resolution
 
 ```bash
 # Test from command line
-nslookup traefik.home.com 192.168.1.51
-nslookup longhorn.home.com 192.168.1.51
+nslookup traefik.elate.me 192.168.1.51
+nslookup longhorn.elate.me 192.168.1.51
 
 # Expected response: 192.168.1.50 for Traefik-routed services
 ```
@@ -621,21 +765,9 @@ kubectl get volumes.longhorn.io -n longhorn-system
 kubectl get pods -n pihole
 kubectl get svc -n pihole
 
-# Reset Pi-hole password (two methods)
-# Method 1: Direct command (if password not set by environment variable)
-kubectl exec -n pihole $(kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}') -- pihole setpassword YOUR_NEW_PASSWORD
-
-# Method 2: Update Helm values (recommended - persistent)
-# Edit helm/pihole/values.yaml and change admin.password, then:
-helm upgrade pihole mojo2600/pihole -n pihole -f helm/pihole/values.yaml
-
-# Access Pi-hole API via kubectl exec
-kubectl exec -n pihole $(kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}') -- pihole status
-kubectl exec -n pihole $(kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}') -- pihole -q google.com
-kubectl exec -n pihole $(kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}') -- pihole -t
-kubectl exec -n pihole $(kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}') -- pihole -up --check-only
-kubectl exec -n pihole $(kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}') -- pihole disable
-kubectl exec -n pihole $(kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}') -- pihole enable
+# Rotate the Pi-hole password persistently:
+# 1. Update the ignored secrets/pihole-password.yaml file.
+# 2. Reseal, apply, and restart Pi-hole using SEALED_SECRETS.md.
 ```
 
 ### Logs and Debugging
@@ -675,10 +807,12 @@ kubectl get events -n <namespace> --sort-by='.lastTimestamp'
         name: myapp
         namespace: default
         annotations:
-            kubernetes.io/ingress.class: traefik
+            cert-manager.io/cluster-issuer: letsencrypt-cloudflare
+            traefik.ingress.kubernetes.io/router.tls: "true"
     spec:
+        ingressClassName: traefik
         rules:
-            - host: myapp.homelab.local
+            - host: myapp.elate.me
               http:
                   paths:
                       - path: /
@@ -688,16 +822,22 @@ kubectl get events -n <namespace> --sort-by='.lastTimestamp'
                                 name: myapp-service
                                 port:
                                     number: 80
+        tls:
+            - secretName: elate.me-tls
+              hosts:
+                  - myapp.elate.me
     ```
 
 3. **Add DNS record in Pi-hole**
 
-    - Access Pi-hole admin: `http://192.168.1.51/admin`
-    - Go to: Local DNS → DNS Records
-    - Add record: `myapp.homelab.local` → `192.168.1.50`
+    Edit `helm/pihole/values.yaml` and add under `customDnsEntries`:
+    ```yaml
+    - address: 192.168.1.50
+      domain: myapp.elate.me
+    ```
 
 4. **Access your service**
-    - Browse to: `http://myapp.homelab.local`
+    - Browse to: `https://myapp.elate.me`
 
 ### Using Persistent Storage
 
@@ -719,32 +859,135 @@ spec:
 
 ## Tailscale Integration
 
-### Why Tailscale?
+### Status
+Deployed and operational
 
-Tailscale provides secure remote access to your homelab without exposing services to the internet or needing external-dns.
+### Overview
+
+Tailscale provides secure remote access to your entire homelab (192.168.1.0/24) without exposing services to the internet. A subnet router runs in Kubernetes to bridge your Tailscale network with your local network.
+
+**Configuration**:
+- **Namespace**: `tailscale`
+- **Deployment**: StatefulSet (subnet router)
+- **Device Name**: homelab-k8s-subnet-router
+- **Subnet Routes**: 192.168.1.0/24
+- **DNS**: Pi-hole (192.168.1.51) for `*.elate.me` resolution
+- **Storage**: 1Gi Longhorn PVC for state persistence
 
 ### How It Works
 
 ```
-Remote Location
+Remote Device (anywhere)
     ↓
-Connect to Tailscale VPN
+Tailscale VPN (100.x.x.x network)
     ↓
-Virtually on your home network (can access 192.168.1.x)
+Subnet Router (Kubernetes pod)
     ↓
-Access services via homelab.local domains
+192.168.1.0/24 Network
+    ├─ 192.168.1.50 (Traefik/All services)
+    ├─ 192.168.1.51 (Pi-hole DNS)
+    └─ All *.elate.me domains
 ```
 
-### Setup Steps (When Ready)
+### Next Steps to Complete Setup
 
-1. **Install Tailscale on Talos node or as a Kubernetes pod**
-2. **Configure Tailscale to use Pi-hole for DNS**
-    - This allows `*.homelab.local` to resolve when connected remotely
-3. **Connect from anywhere**
-    - Access services as if you were at home
-    - Example: `http://traefik.homelab.local` works from anywhere
+After deployment, you need to:
 
-**No external-dns needed. No public domain needed. No cloud DNS needed.**
+1. **Approve Subnet Routes** (in Tailscale admin console):
+   - Go to https://login.tailscale.com/admin/machines
+   - Find device: "homelab-k8s-subnet-router"
+   - Click "..." → "Edit route settings"
+   - Enable: `192.168.1.0/24`
+   - Click "Save"
+
+2. **Configure DNS** (in Tailscale admin console):
+   - Go to **DNS** settings
+   - Click "Add nameserver" → "Custom..."
+   - Enter: `192.168.1.51` (Pi-hole)
+   - Enable "Override local DNS"
+   - *Optional*: Add Split DNS for `elate.me` → `192.168.1.51`
+
+3. **Connect from Remote Device**:
+   ```bash
+   # Install Tailscale
+   # macOS: brew install tailscale
+   # Linux: apt-get install tailscale
+
+   # Connect with subnet routes enabled
+   tailscale up --accept-routes
+
+   # Verify connection
+   tailscale status
+   ping 192.168.1.50
+   ```
+
+4. **Test Access**:
+   ```bash
+   # Test DNS resolution
+   nslookup dashboard.elate.me
+   # Should return: 192.168.1.50
+
+   # Test HTTPS access
+   curl -k https://dashboard.elate.me
+
+   # Open in browser
+   https://dev.elate.me           # Code-server
+   https://dashboard.elate.me     # Heimdall
+   https://pihole.elate.me/admin  # Pi-hole
+   https://longhorn.elate.me      # Longhorn
+   ```
+
+### Remote Access
+
+Once configured, from anywhere with internet:
+- **All Services**: Access any `*.elate.me` domain
+- **Direct IPs**: Ping/access any `192.168.1.x` IP
+- **DNS & Ad-blocking**: Pi-hole works remotely
+- **Encryption**: End-to-end encrypted (zero-trust)
+
+### Management Commands
+
+```bash
+# Check pod status
+kubectl get pods -n tailscale
+
+# View connection status
+kubectl exec -n tailscale tailscale-subnet-router-0 -- tailscale status
+
+# View logs
+kubectl logs -n tailscale tailscale-subnet-router-0 -f
+
+# Restart pod (if needed)
+kubectl rollout restart statefulset/tailscale-subnet-router -n tailscale
+
+# Update auth key (if needed)
+kubectl create secret generic tailscale-auth \
+  -n tailscale \
+  --from-literal=TS_AUTHKEY='NEW-KEY-HERE' \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl rollout restart statefulset/tailscale-subnet-router -n tailscale
+```
+
+### Troubleshooting
+
+**Can't access 192.168.1.x IPs:**
+- Verify routes are approved in Tailscale admin console
+- Ensure you used `--accept-routes` when connecting
+- Check: `tailscale status` should show subnet routes
+
+**DNS not resolving *.elate.me:**
+- Verify Pi-hole (192.168.1.51) is set as nameserver in Tailscale DNS settings
+- Enable "Override local DNS" in Tailscale admin console
+- Flush DNS cache on your device
+
+**Pod not running:**
+- Check logs: `kubectl logs -n tailscale tailscale-subnet-router-0`
+- Verify PVC is bound: `kubectl get pvc -n tailscale`
+- Check auth key is valid (regenerate if expired)
+
+### Cost
+
+**Free** - Tailscale Personal plan (up to 3 users, 100 devices)
 
 ---
 
@@ -752,11 +995,7 @@ Access services via homelab.local domains
 
 Services to consider deploying:
 
--   **Twingate** - Alternative to Tailscale for zero-trust access
--   **Grafana** - Monitoring and visualization
--   **Prometheus** - Metrics collection
 -   **PostgreSQL** - Database
--   **Uptime Kuma** - Uptime monitoring
 -   **Argo CD** - GitOps continuous deployment
 -   **Passbolt** - Password manager
 -   **GitLab** - Git repository and CI/CD
@@ -767,12 +1006,20 @@ Services to consider deploying:
 
 ### Current Configuration
 
-The Talos node is configured with:
+The cluster is configured with:
 
--   **Static IP**: 192.168.1.41
--   **Network Interface**: enp2s0
--   **iSCSI Extension**: v0.2.0 (for Longhorn support)
+-   **Talos Version**: v1.11.6
+-   **Kubernetes Version**: v1.34.1
+-   **Nodes**: 3 (1 control plane + 2 workers)
+-   **Network Interface**: enp2s0 (all nodes)
 -   **Control Plane Endpoint**: https://192.168.1.41:6443
+-   **Install Disk**: /dev/nvme0n1 (all nodes)
+-   **Factory Image**: factory.talos.dev/installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac:v1.11.6
+
+### Talos Patches
+
+-   **fix-nodeip-controlplane.yaml**: Forces kubelet to use 192.168.1.0/24 subnet (prevents Tailscale IP conflicts)
+-   **fix-kernel-modules.yaml**: Loads nbd, iscsi_tcp, configfs modules for Longhorn storage
 
 ### Talos Management Commands
 
@@ -798,12 +1045,8 @@ talosctl --talosconfig=./talosconfig --nodes 192.168.1.41 reboot
 
 ### Talos Upgrade (With Custom Image)
 
-The node uses a custom Talos image with iSCSI support:
-
 ```bash
 # Schematic ID: c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac
-# Image: factory.talos.dev/installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac:v1.11.6
-
 # To upgrade to a new version:
 talosctl --talosconfig=./talosconfig --nodes 192.168.1.41 upgrade \
   --image factory.talos.dev/installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac:v1.X.X \
@@ -830,49 +1073,26 @@ talosctl --nodes 192.168.1.41 --talosconfig=./talosconfig health
 
 ### Adding Additional Nodes
 
-When adding more Talos nodes, use the `generate-talos-config.sh` script to create node configurations with all the necessary patches (kernel modules, network settings, etc.):
+Use the `generate-talos-config.sh` script to create node configurations with all the necessary patches:
 
 **Generate a new worker node config:**
 ```bash
-# Generate worker configuration for a new node
-./generate-talos-config.sh --type worker --ip 192.168.1.42
+./generate-talos-config.sh --type worker --ip 192.168.1.44
 
-# Review the generated worker.yaml file
+# Review and apply
 cat worker.yaml
+talosctl apply-config --insecure --nodes 192.168.1.44 --file worker.yaml
 
-# Apply configuration to the node
-talosctl apply-config --insecure --nodes 192.168.1.42 --file worker.yaml
-
-# Wait for node to join the cluster
+# Wait for node to join
 kubectl get nodes -w
-```
-
-**Generate a new control plane node config:**
-```bash
-# For high availability, add additional control plane nodes
-./generate-talos-config.sh --type controlplane --ip 192.168.1.43
-
-# Apply to the node
-talosctl apply-config --insecure --nodes 192.168.1.43 --file controlplane.yaml
 ```
 
 **Script options:**
 ```bash
-# View all available options
 ./generate-talos-config.sh --help
 
 # Example with custom gateway
 ./generate-talos-config.sh --type worker --ip 192.168.1.44 --gateway 192.168.1.254
-```
-
-**After adding nodes:**
-```bash
-# Update Longhorn replica count when you have 3+ nodes
-kubectl patch -n longhorn-system settings.longhorn.io default-replica-count \
-  -p '{"value":"3"}' --type=merge
-
-# Important: Revert MetalLB configuration to respect control plane exclusion
-helm upgrade metallb metallb/metallb -n metallb-system --set speaker.ignoreExcludeLB=false --reuse-values
 ```
 
 ---
@@ -881,34 +1101,59 @@ helm upgrade metallb metallb/metallb -n metallb-system --set speaker.ignoreExclu
 
 ```
 homelab/
- ├── README.md                      # This file
- ├── SEALED_SECRETS.md             # Sealed Secrets setup guide
- ├── generate-talos-config.sh      # Script to generate node configurations
- ├── helm/                         # Helm chart configurations
+ ├── README.md                          # This file
+ ├── CLAUDE.md                          # Claude Code guidance
+ ├── MONITORING_SETUP.md                # Monitoring setup guide
+ ├── QUICK_START_MONITORING.md          # Quick monitoring reference
+ ├── generate-talos-config.sh           # Script to generate node configurations
+ ├── helm/                              # Helm chart configurations
  │   ├── metallb/
- │   │   ├── values.yaml           # MetalLB configuration
- │   │   └── ipaddresspool.yaml    # IP pool definition
+ │   │   ├── values.yaml                # MetalLB configuration
+ │   │   ├── config.yaml                # MetalLB config CRD
+ │   │   └── ipaddresspool.yaml         # IP pool definition
  │   ├── traefik/
- │   │   └── values.yaml           # Traefik configuration
+ │   │   └── values.yaml                # Traefik configuration
  │   ├── longhorn/
- │   │   └── values.yaml           # Longhorn configuration
+ │   │   └── values.yaml                # Longhorn configuration
  │   ├── pihole/
- │   │   └── values.yaml           # Pi-hole configuration
+ │   │   └── values.yaml                # Pi-hole configuration
  │   ├── heimdall/
- │   │   └── values.yaml           # Heimdall configuration
+ │   │   └── values.yaml                # Heimdall configuration
  │   └── code-server/
- │       ├── README.md             # Dev environments guide
- │       ├── values-main.yaml      # Main dev environment
- │       └── values-project1.yaml  # Project template
- ├── secrets/                      # Unencrypted secrets (NEVER commit)
- │   └── pihole-password.yaml   # Example secret template
- ├── sealedsecrets/                # Encrypted secrets (SAFE to commit)
- └── manifests/                    # Kubernetes manifests
-      ├── cluster-issuer.yaml       # Cert-manager issuer
-      ├── wildcard-cert.yaml        # Wildcard certificate
-      ├── pihole-ingress.yaml     # Pi-hole ingress
-      ├── longhorn-ingress.yaml   # Longhorn ingress
-      └── devenv-shared-pvc.yaml    # Dev environments shared storage
+ │       ├── values-main.yaml           # Main dev environment (dev.elate.me)
+ │       ├── values-homelab.yaml        # Homelab management (homelab.elate.me)
+ │       └── values-project1.yaml       # Project template
+ ├── manifests/                         # Kubernetes manifests
+ │   ├── letsencrypt-cloudflare-issuer.yaml  # Let's Encrypt ClusterIssuer
+ │   ├── wildcard-cert-letsencrypt.yaml      # *.elate.me certificate
+ │   ├── cluster-issuer.yaml            # Self-signed issuer (fallback)
+ │   ├── https-redirect-middleware.yaml  # HTTP→HTTPS redirect
+ │   ├── code-server-main.yaml          # Main code-server
+ │   ├── code-server-homelab.yaml       # Homelab management code-server
+ │   ├── code-server-homelab-rbac.yaml  # Cluster admin RBAC
+ │   ├── devenv-shared-pvc.yaml         # Shared 50Gi dev storage
+ │   ├── devpod-rbac.yaml              # DevPod RBAC
+ │   ├── grafana-datasources.yaml       # Grafana provisioning
+ │   ├── grafana-ingress.yaml           # Grafana ingress
+ │   ├── longhorn-ingress.yaml          # Longhorn ingress
+ │   ├── pihole-ingress.yaml            # Pi-hole ingress
+ │   ├── registry.yaml                  # Docker registry
+ │   ├── moseca.yaml                    # Moseca audio app
+ │   ├── uptime-kuma.yaml              # Uptime monitoring
+ │   ├── tailscale-subnet-router.yaml   # Tailscale VPN
+ │   └── metallb-*.yaml                 # MetalLB security policies
+ ├── talos-patches/                     # Talos machine config patches
+ │   ├── fix-nodeip-controlplane.yaml
+ │   ├── fix-kernel-modules.yaml
+ │   └── worker-*.yaml                  # Worker node configs
+ ├── scripts/                           # Utility scripts
+ │   ├── setup-uptime-kuma.sh           # Configure monitors (bash)
+ │   ├── setup-uptime-kuma-socketio.js  # Configure monitors (Node.js)
+ │   └── cleanup-uptime-kuma-duplicates.js
+ ├── secrets/                           # Plaintext inputs (gitignored; never commit)
+ ├── sealedsecrets/                     # Encrypted SealedSecrets (safe to commit)
+ ├── devpod/                            # DevPod configuration
+ └── .devcontainer/                     # Dev container configs
 ```
 
 ---
@@ -917,30 +1162,18 @@ homelab/
 
 ### Security
 
-⚠️ **USE SEALED SECRETS FOR PRODUCTION**
-
--   See [SEALED_SECRETS.md](SEALED_SECRETS.md) for complete guide on encrypting secrets
--   Sealed Secrets allows you to safely commit encrypted secrets to public GitHub
--   Only your cluster can decrypt the secrets (no private keys in repository!)
--   Currently using temporary passwords - migrate to Sealed Secrets for production
-
-⚠️ **CHANGE DEFAULT PASSWORDS**
-
--   Pi-hole admin password is currently `newpassword`
--   Use Sealed Secrets workflow to set a secure password (see SEALED_SECRETS.md)
-
-### Limitations
-
--   **Single node cluster**: No high availability yet
--   **Longhorn**: Still completing initialization (normal for first deployment)
--   **Pi-hole**: Running without persistence (will be added when Longhorn is ready)
--   **Self-signed certificates**: HTTPS uses self-signed certificates (browsers will show warnings). See [Importing CA Certificate](#importing-self-signed-ca-certificate) to eliminate warnings.
+-   TLS certificates are valid Let's Encrypt certificates (no browser warnings)
+-   Kubernetes credentials are managed with Bitnami Sealed Secrets; see [SEALED_SECRETS.md](SEALED_SECRETS.md)
+-   Plaintext manifests under `secrets/` and generated Talos credentials are gitignored
+-   Encrypted manifests under `sealedsecrets/` are safe to commit and are decrypted only by this cluster
+-   Pi-hole reads its admin password from the `pihole-password` Secret
+-   Grafana credentials are managed in Grafana and are not stored in this repository
 
 ### Maintenance
 
--   **Backups**: Set up regular backups of Pi-hole configuration and Longhorn volumes
+-   **Backups**: Set up regular backups of Longhorn volumes
 -   **Updates**: Keep Kubernetes, Talos, and applications updated
--   **Monitoring**: Consider deploying Prometheus + Grafana for metrics
+-   **Monitoring**: Complete monitoring stack deployed - see [Monitoring Stack](#monitoring-stack) section
 
 ---
 
@@ -950,83 +1183,22 @@ homelab/
 
 **Symptom**: Services have EXTERNAL-IP assigned but cannot access them from external network
 
-**Common Signs**:
-- `kubectl get svc` shows EXTERNAL-IP but services don't respond
-- `ping 192.168.1.50` times out or shows "Host is down"
-- `arp -a | grep 192.168.1.50` shows "incomplete" or null MAC (00:00:00:00:00:00)
-- No "announcing from node" events in service events
+**Root Cause**: `speaker.ignoreExcludeLB` not set to `true` in MetalLB config
 
-**Root Cause**: Talos Linux automatically adds `node.kubernetes.io/exclude-from-external-load-balancers` label to control plane nodes (Kubernetes best practice for multi-node production clusters). MetalLB respects this label by default and won't announce services from excluded nodes. In single-node clusters where the control plane must host services, MetalLB needs to be configured to **ignore** this label.
-
-**❌ INCORRECT Solution** (temporary fix that gets reset):
-```bash
-# DON'T DO THIS - label gets reapplied by Talos
-kubectl label node <node-name> node.kubernetes.io/exclude-from-external-load-balancers-
-```
-
-**✅ CORRECT Solution** (permanent fix via Helm configuration):
+**Solution**:
 
 ```bash
-# Configure MetalLB to ignore the exclusion label
 helm upgrade metallb metallb/metallb -n metallb-system --set speaker.ignoreExcludeLB=true --reuse-values
-
-# Wait for speaker to restart and pick up new configuration
 kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/component=speaker --timeout=60s
-
-# Verify the setting was applied
-helm get values metallb -n metallb-system | grep ignoreExcludeLB
-# Should output: ignoreExcludeLB: true
 ```
 
-**Verification Steps**:
+**Verification**:
 
 ```bash
-# 1. Check for new announcement events (should be recent)
 kubectl get events -n traefik --sort-by='.lastTimestamp' | grep -i announce
-# Expected: "announcing from node talos-fy9-w02 with protocol layer2" (recent timestamp)
-
-# 2. Test connectivity
-ping -c 3 192.168.1.50  # Traefik - should respond
-ping -c 3 192.168.1.51  # Pi-hole - should respond
-
-# 3. Test HTTP access
-curl -I http://192.168.1.50/      # Should return HTTP 404 (expected from Traefik)
-curl -I http://192.168.1.51/      # Should return HTTP 403 (expected from Pi-hole)
-
-# 4. Check ARP resolution
-arp -a | grep "192.168.1.5"
-# Should show proper MAC addresses, not (incomplete) or 00:00:00:00:00:00
-
-# 5. Verify MetalLB speaker is announcing
-kubectl logs -n metallb-system -l app.kubernetes.io/component=speaker --tail=50 | grep -i announce
-# Should see "created ARP responder for interface enp2s0"
+ping -c 3 192.168.1.50
+curl -I http://192.168.1.50
 ```
-
-**Additional Debugging**:
-
-If the above solution doesn't work, check these additional items:
-
-```bash
-# Verify L2Advertisement configuration has correct interface
-kubectl get l2advertisement -n metallb-system homelab-l2 -o yaml
-# Should show: interfaces: [enp2s0]
-
-# Check that speaker pods are running
-kubectl get pods -n metallb-system
-# Expected: speaker pods should be 4/4 Running
-
-# Verify IP pool exists
-kubectl get ipaddresspool -n metallb-system
-# Should show: homelab-pool with addresses 192.168.1.50-192.168.1.99
-
-# Check for network sysctls (optional optimization)
-talosctl --talosconfig=./talosconfig --nodes 192.168.1.41 read /proc/sys/net/ipv4/ip_forward
-# Should output: 1
-```
-
-**Why This Works**: The `speaker.ignoreExcludeLB: true` setting is a permanent configuration that tells MetalLB to announce LoadBalancer services even on nodes with the `exclude-from-external-load-balancers` label. This survives node reboots and cluster restarts, unlike manually removing the label which gets reapplied by Talos.
-
-**Reference**: See [MetalLB Load Balancer section](#1-metallb-load-balancer) for complete configuration details.
 
 ### Cluster Not Accessible
 
@@ -1052,32 +1224,25 @@ kubectl describe pod -n <namespace> <pod-name>
 
 # Check logs
 kubectl logs -n <namespace> <pod-name>
-
-# Common issues:
-# - Image pull errors
-# - Resource constraints
-# - PersistentVolumeClaim pending (Longhorn still initializing)
 ```
 
 ### DNS Not Resolving
 
 ```bash
 # Test Pi-hole DNS
-nslookup traefik.homelab.local 192.168.1.51
+nslookup traefik.elate.me 192.168.1.51
 
 # Check Pi-hole is running
 kubectl get pods -n pihole
 
 # Check Pi-hole service has IP
 kubectl get svc -n pihole
-
-# Verify custom DNS entries in Pi-hole admin UI
 ```
 
-### Can't Access Services via homelab.local
+### Can't Access Services via *.elate.me
 
 1. Ensure your device is using Pi-hole for DNS (192.168.1.51)
-2. Check DNS resolution works: `nslookup service.homelab.local 192.168.1.51`
+2. Check DNS resolution works: `nslookup dashboard.elate.me 192.168.1.51`
 3. Verify Traefik is running: `kubectl get pods -n traefik`
 4. Check Ingress resources exist: `kubectl get ingress -A`
 

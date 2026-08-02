@@ -1,0 +1,33 @@
+{
+  "name": "devpod-docker",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "eamodio.gitlens",
+        "ms-python.python",
+        "ms-vscode.vscode-typescript-next"
+      ]
+    },
+    "devpod": {
+      "persistentVolumeSize": "20Gi",
+      "storageClass": "longhorn",
+      "moby": false
+    }
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/devcontainers/features/docker-from-docker:1": {}
+  },
+
+  "remoteEnv": {
+    "NODE_ENV": "development"
+  },
+
+  "forwardPorts": [3000, 8080, 5000],
+
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code opencode-ai && echo 'Claude Code and Open Code installed successfully'"
+}

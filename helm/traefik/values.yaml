@@ -6,10 +6,10 @@
 ingressRoute:
   dashboard:
     enabled: true
-    matchRule: Host(`traefik.home.com`)
+    matchRule: Host(`traefik.elate.me`)
     entryPoints: ["websecure"]
     tls:
-      secretName: home-com-tls
+      secretName: elate.me-tls
 
 # Service configuration - use LoadBalancer with MetalLB
 service:
@@ -45,4 +45,4 @@ additionalArguments:
 tlsStore:
   default:
     defaultCertificate:
-      secretName: home-com-tls
+      secretName: elate.me-tls

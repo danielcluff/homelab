@@ -1,0 +1,9 @@
+# Fix: Remove non-existent iscsi_generic module
+# The iscsi_generic module doesn't exist in this kernel
+# iscsi_tcp is sufficient for Longhorn
+machine:
+  kernel:
+    modules:
+      - name: nbd
+      - name: iscsi_tcp
+      - name: configfs

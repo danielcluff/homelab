@@ -1,25 +1,25 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: pihole-ingress
-  namespace: pihole
+  name: grafana-ingress
+  namespace: monitoring
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-cloudflare
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   rules:
-  - host: pihole.elate.me
+  - host: grafana.elate.me
     http:
       paths:
-      - backend:
-          service:
-            name: pihole-web
-            port:
-              number: 80
-        path: /
+      - path: /
         pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
   tls:
   - hosts:
-    - pihole.elate.me
+    - grafana.elate.me
     secretName: elate.me-tls
