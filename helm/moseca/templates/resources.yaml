@@ -1,11 +1,5 @@
----
 # Moseca - Music Source Separation & Karaoke
 # Access: https://audio.elate.me
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: moseca
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,7 +8,7 @@ metadata:
   labels:
     app: moseca
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: moseca

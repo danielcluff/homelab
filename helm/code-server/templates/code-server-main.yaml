@@ -11,6 +11,10 @@ metadata:
     environment: main
 spec:
   replicas: 1
+  # The workspace and shared volumes are ReadWriteOnce. Stop the old pod before
+  # creating its replacement so Longhorn can detach and reattach cleanly.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: code-server
@@ -29,6 +33,17 @@ spec:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
+      # Both code-server instances mount the same ReadWriteOnce shared PVC.
+      # Keep the main instance on the node where the homelab instance is
+      # running so Longhorn only needs to attach that volume to one node.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: code-server
+                  environment: homelab
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: code-server
           image: ghcr.io/coder/code-server:latest
@@ -45,21 +60,6 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - /bin/bash
-                  - -c
-                  - |
-                    # Install Node.js if not present
-                    if ! command -v node &> /dev/null; then
-                      curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-                      sudo apt-get install -y nodejs
-                    fi
-                    # Install Claude Code and Open Code
-                    sudo npm install -g @anthropic-ai/claude-code opencode-ai || true
-                    echo "Claude Code and Open Code installation complete"
           resources:
             limits:
               cpu: 2000m
@@ -85,6 +85,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: devenv-main-workspace
   namespace: devenv
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     app: code-server
     environment: main

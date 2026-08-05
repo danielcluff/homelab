@@ -30,7 +30,7 @@ kubectl get pvc -n openvpn
 To redeploy:
 
 ```bash
-kubectl apply -f manifests/openvpn-tap.yaml
+helm upgrade --install openvpn helm/openvpn -n openvpn
 ```
 
 ## PKI Initialization (One-Time Setup)

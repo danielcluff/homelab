@@ -107,28 +107,26 @@ homelab/
 │   ├── longhorn/values.yaml           # Storage
 │   ├── pihole/values.yaml             # DNS + ad blocking
 │   ├── heimdall/values.yaml           # Dashboard
-│   └── code-server/                   # Dev environment templates
+│   ├── code-server/                   # Main and homelab dev environments
 │       ├── values-main.yaml           # dev.elate.me
 │       ├── values-homelab.yaml        # homelab.elate.me
 │       └── values-project1.yaml       # Template for new projects
+│   ├── cert-manager/                  # Official chart values (v1.16.2)
+│   ├── sealed-secrets/                # Vendored official chart (2.19.1)
+│   ├── grafana/                       # Grafana, datasource, and ingress
+│   ├── moseca/                        # On-demand audio service
+│   ├── openvpn/                       # TAP OpenVPN server
+│   ├── registry/                      # Local Docker registry
+│   ├── tailscale/                     # Tailscale subnet router
+│   └── uptime-kuma/                   # Uptime monitoring
 ├── manifests/                         # Raw Kubernetes manifests
 │   ├── cluster-issuer.yaml            # Self-signed issuer (fallback)
 │   ├── letsencrypt-cloudflare-issuer.yaml  # Let's Encrypt ClusterIssuer
 │   ├── wildcard-cert-letsencrypt.yaml # *.elate.me certificate
 │   ├── https-redirect-middleware.yaml # HTTP→HTTPS redirect
-│   ├── code-server-main.yaml          # Main dev environment
-│   ├── code-server-homelab.yaml       # Homelab management environment
-│   ├── code-server-homelab-rbac.yaml  # Cluster admin RBAC for homelab env
-│   ├── devenv-shared-pvc.yaml         # 50Gi shared storage for dev envs
 │   ├── devpod-rbac.yaml               # DevPod workspace RBAC
-│   ├── grafana-datasources.yaml       # Prometheus + Alertmanager datasources
-│   ├── grafana-ingress.yaml           # grafana.elate.me ingress
 │   ├── longhorn-ingress.yaml          # longhorn.elate.me ingress
 │   ├── pihole-ingress.yaml            # pihole.elate.me ingress
-│   ├── registry.yaml                  # Docker registry (deployment, svc, ingress, PVC)
-│   ├── moseca.yaml                    # Audio processing app
-│   ├── uptime-kuma.yaml               # Uptime monitoring
-│   ├── tailscale-subnet-router.yaml   # VPN subnet router
 │   └── metallb-*.yaml                 # MetalLB pod security policies
 ├── talos-patches/                     # Talos machine config patches
 │   ├── fix-nodeip-controlplane.yaml   # Forces kubelet to use 192.168.1.0/24
@@ -219,7 +217,7 @@ Subnet router in `tailscale` namespace advertises `192.168.1.0/24` to Tailscale 
 - **Talos config**: Always use `--talosconfig=./talosconfig` flag
 - **Pi-hole password**: Managed by `sealedsecrets/pihole-password-sealed.yaml`; plaintext input is gitignored
 - **Grafana login**: Managed in Grafana; credentials are not stored in this repository
-- **Kubelet nodeIP**: Control plane uses `nodeIP.validSubnets: 192.168.1.0/24` to avoid Tailscale IP conflicts (see `talos-patches/fix-nodeip-controlplane.yaml`)
+- **Kubelet nodeIP**: Every node uses `nodeIP.validSubnets: 192.168.1.0/24` to avoid Tailscale IP conflicts (see `talos-patches/fix-nodeip-controlplane.yaml`)
 - **Cluster name**: `homelab` (Talos context: `homelab-007`)
 - **Pod/Service networks**: Pods use `10.244.0.0/16`, services use `10.96.0.0/12`
 - **All tolerations**: Services include control-plane tolerations for scheduling flexibility

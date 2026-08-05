@@ -283,7 +283,7 @@ kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/co
 -   External IP: `192.168.1.53` (from MetalLB, port 5000)
 -   URL: `https://registry.elate.me`
 -   Storage: 50Gi Longhorn PVC
--   Config files: `manifests/registry.yaml`
+-   Helm chart: `helm/registry/`
 
 **Status**: Running
 
@@ -303,7 +303,7 @@ kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/co
 -   Namespace: `moseca`
 -   URL: `https://audio.elate.me`
 -   Image: `192.168.1.53:5000/moseca:latest` (from local registry)
--   Config files: `manifests/moseca.yaml`
+-   Helm chart: `helm/moseca/`
 
 **Status**: Running
 
@@ -373,7 +373,7 @@ Both Grafana and Uptime Kuma support programmatic configuration:
 
 **Automatic**: Datasources are provisioned via ConfigMap on pod startup.
 
-**Location**: `manifests/grafana-datasources.yaml`
+**Location**: `helm/grafana/templates/grafana-datasources.yaml`
 
 **Configured Datasources**:
 -   Prometheus (default)
@@ -381,7 +381,7 @@ Both Grafana and Uptime Kuma support programmatic configuration:
 
 **Add more datasources**: Edit the ConfigMap and restart Grafana:
 ```bash
-kubectl apply -f manifests/grafana-datasources.yaml
+helm upgrade grafana helm/grafana -n monitoring
 kubectl rollout restart deployment grafana -n monitoring
 ```
 
@@ -470,7 +470,7 @@ helm repo update
 kubectl create namespace devenv
 
 # Create shared storage
-kubectl apply -f manifests/devenv-shared-pvc.yaml
+helm upgrade --install code-server helm/code-server -n devenv
 ```
 
 **Deploy main dev environment**:

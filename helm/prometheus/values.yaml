@@ -1,0 +1,26 @@
+# Upstream chart: prometheus-community/prometheus
+# Version: 28.2.1
+# This captures the currently installed user-supplied values in Git.
+alertmanager:
+  enabled: true
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+    storageClass: longhorn
+
+pushgateway:
+  enabled: true
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+    storageClass: longhorn
+
+server:
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+    storageClass: longhorn
+
+prometheus-node-exporter:
+  enabled: true
+

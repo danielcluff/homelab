@@ -50,7 +50,7 @@ The script will create monitors for:
 
 ### Add More Datasources
 
-Edit `manifests/grafana-datasources.yaml`:
+Edit `helm/grafana/templates/grafana-datasources.yaml`:
 
 ```yaml
 datasources:
@@ -62,7 +62,7 @@ datasources:
 Apply changes:
 
 ```bash
-kubectl apply -f manifests/grafana-datasources.yaml
+helm upgrade grafana helm/grafana -n monitoring
 kubectl rollout restart deployment grafana -n monitoring
 ```
 

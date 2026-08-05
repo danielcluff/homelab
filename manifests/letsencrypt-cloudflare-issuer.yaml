@@ -16,5 +16,5 @@ spec:
       - dns01:
           cloudflare:
             apiTokenSecretRef:
-              name: cloudflare-api-token
+              name: cloudflare-dns-homelab-cert-manager
               key: api-token

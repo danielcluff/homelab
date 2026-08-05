@@ -1,0 +1,6 @@
+apiVersion: v2
+name: homelab-tailscale
+description: Homelab Tailscale subnet router
+type: application
+version: 1.0.1
+appVersion: 1.96.5

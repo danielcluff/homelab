@@ -1,0 +1,6 @@
+apiVersion: v2
+name: homelab-openvpn
+description: Homelab TAP OpenVPN server
+type: application
+version: 1.0.0
+appVersion: latest

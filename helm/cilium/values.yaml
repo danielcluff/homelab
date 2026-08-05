@@ -1,0 +1,90 @@
+# Upstream chart: cilium/cilium
+# Chart/app version: 1.19.6
+# Platform: Talos Linux 1.13.x
+#
+# This first migration keeps kube-proxy. Do not enable kube-proxy replacement
+# until MetalLB, LoadBalancer, NodePort, Tailscale and OpenVPN traffic have been
+# validated on the Cilium dataplane.
+kubeProxyReplacement: false
+
+# MetalLB remains the only LoadBalancer address manager. Prevent Cilium from
+# claiming or allocating addresses from the existing 192.168.1.50-99 pool.
+enableLBIPAM: false
+defaultLBServiceIPAM: none
+
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+ipam:
+  # Reuse the per-node PodCIDRs assigned by Kubernetes/Talos. The cluster pod
+  # CIDR remains 10.244.0.0/16.
+  mode: kubernetes
+
+k8s:
+  requireIPv4PodCIDR: true
+
+cni:
+  # Talos provides CNI binaries at this immutable host path.
+  binPath: /opt/cni/bin
+  # Cilium becomes the sole CNI configuration after the Talos cni.name=none
+  # patch removes the managed Flannel bootstrap manifest.
+  exclusive: true
+
+cgroup:
+  # Talos already mounts cgroup v2; Kubernetes workloads must not mount it.
+  autoMount:
+    enabled: false
+  hostRoot: /sys/fs/cgroup
+
+bpf:
+  # Talos HostDNS forwarding is enabled on this cluster. Legacy host routing is
+  # required so host-to-kube-dns forwarding continues to work.
+  hostLegacyRouting: true
+
+securityContext:
+  capabilities:
+    # Talos does not allow workloads to load kernel modules, so SYS_MODULE is
+    # deliberately absent from the upstream capability set.
+    ciliumAgent:
+      - CHOWN
+      - KILL
+      - NET_ADMIN
+      - NET_RAW
+      - IPC_LOCK
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cleanCiliumState:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+
+rollOutCiliumPods: true
+
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    # Keep the UI internal. It may later receive a LAN-only Traefik ingress.
+    enabled: true
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - httpV2
+
+prometheus:
+  enabled: true
+
+operator:
+  replicas: 2
+  prometheus:
+    enabled: true

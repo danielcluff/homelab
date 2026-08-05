@@ -10,10 +10,10 @@ This repository uses [Bitnami Sealed Secrets](https://github.com/bitnami/sealed-
 
 The managed secrets are:
 
-| Plaintext input | Encrypted manifest | Resulting Secret | Consumer |
-|---|---|---|---|
-| `secrets/pihole-password.yaml` | `sealedsecrets/pihole-password-sealed.yaml` | `pihole/pihole-password` (`password`) | Pi-hole Helm release |
-| `secrets/cloudflare-secrets.yaml` | `sealedsecrets/cloudflare-secrets-sealed.yaml` | `cert-manager/cloudflare-api-token` (`api-token`) | `letsencrypt-cloudflare` ClusterIssuer |
+| Plaintext input                   | Encrypted manifest                             | Resulting Secret                                  | Consumer                               |
+| --------------------------------- | ---------------------------------------------- | ------------------------------------------------- | -------------------------------------- |
+| `secrets/pihole-password.yaml`    | `sealedsecrets/pihole-password-sealed.yaml`    | `pihole/pihole-password` (`password`)             | Pi-hole Helm release                   |
+| Cloudflare DNS token (entered interactively; no plaintext file required) | `sealedsecrets/cloudflare-dns-sealed.yaml` | `cert-manager/cloudflare-dns-homelab-cert-manager` (`api-token`) | `letsencrypt-cloudflare` ClusterIssuer |
 
 ## Controller installation
 
@@ -36,6 +36,19 @@ kubectl get crd sealedsecrets.bitnami.com
 
 Strict scope is the default and binds ciphertext to the exact Secret name and namespace. Keep both stable unless you intend to reseal.
 
+kubeseal --controller-name sealed-secrets-controller --format yaml < secret.yaml > sealed-secret.yaml
+kubectl apply -f sealed-secret.yaml
+
+verify decryption
+
+# Check the SealedSecret status
+
+kubectl get sealedsecret <secret-name> -n <namespace>
+
+# Verify the actual Secret exists
+
+kubectl get secret <secret-name> -n <namespace>
+
 ```bash
 kubeseal \
   --controller-name sealed-secrets-controller \
@@ -48,8 +61,8 @@ kubeseal \
   --controller-name sealed-secrets-controller \
   --controller-namespace kube-system \
   --format yaml \
-  --secret-file secrets/cloudflare-secrets.yaml \
-  --sealed-secret-file sealedsecrets/cloudflare-secrets-sealed.yaml
+  --secret-file secrets/cloudflare-dns.yaml \
+  --sealed-secret-file sealedsecrets/cloudflare-dns-sealed.yaml
 ```
 
 Review only names, namespaces, and encrypted key names before applying; never print plaintext or decoded Kubernetes Secrets:
@@ -58,7 +71,7 @@ Review only names, namespaces, and encrypted key names before applying; never pr
 kubectl apply -f sealedsecrets/
 kubectl get sealedsecrets -A
 kubectl get secret pihole-password -n pihole
-kubectl get secret cloudflare-api-token -n cert-manager
+kubectl get secret cloudflare-dns-homelab-cert-manager -n cert-manager
 ```
 
 After changing the Pi-hole secret, restart or upgrade Pi-hole so its environment is recreated:

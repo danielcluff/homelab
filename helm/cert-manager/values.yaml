@@ -1,0 +1,4 @@
+# Chart: oci://quay.io/jetstack/charts/cert-manager
+# Version: v1.16.2 (pinned to the version currently running in the cluster)
+crds:
+  enabled: true

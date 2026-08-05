@@ -1,17 +1,13 @@
----
 # Docker Registry deployment
 # Access: https://registry.elate.me
 # Usage: docker push registry.elate.me/myimage:tag
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: registry
----
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: registry-data
   namespace: registry
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     app: registry
 spec:

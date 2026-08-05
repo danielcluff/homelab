@@ -1,0 +1,14 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: cloudflare-dns-homelab-cert-manager
+  namespace: cert-manager
+spec:
+  encryptedData:
+    api-token: AgANTDQmPMQKNhFV4S3B42hJryK4gbvNGY1pizQU8R31VThuzUwJ0K/8x4i326jL9iaCfsYkjfnHFpGdK2MW/Bui1F6q527BxhDK//ZjXdhh3koFPbmnVRqBdFcMY0AmmrSJoHZEnnciO99b64CYLJioeQ3ujKLR1xw8Kry6EppAyQKJEY7V2pdVSkxJw29WgV2Q00hnVdX+gRjaHSyDfL7lb5ORTBIomXgpwcOOS1m4ZFoM1RJJvabf7/SfkSmeO+K5qYlqQGa1AN0oU6tfANWOdY6ITl3MJKT8fKlByyCckWeNbB5gH/ScnUiMc7QNHYecscHlU2LlgWi4HKUTZ4PKdo9TzTqD20BoEPcJCzzaJt2owzEBXHy7mbEKqJJlrTs1iP3PDNxqsJZcZD7rIRS0E/mv3sE54M0eeErF06/thse5VyHqQrrai/VlAFpRykvZYUFyXaNalIVeXHzFEWHkBDftfeIbEx6CXGo8VhRUGTvQc7sfGoKzgg5QAIXG2Lcx5mPahEnhvpeZ/lJTDB0aK1V614bgClC3Ia6KxxXhBQINYPH0YBmRhZxjdynPtiEfMTYU1XpAhMD4wN/m01OD9lDb94ugS972x5mPiDFWnkS6WXgsE4aYQxEwJwHPSMQ+rtSGZMnd5T/PIeYZ8T+PlrnAW107tXKqiHZ6trNPI/p4Lh9BKfxyRC4LtvhNUnSsmhEnyLaCWppdz53kU46f0HKpKOcslHmrHZ1y+uOj6tYEhBefAp7/uYB1XpnzU78+9Bf+ow==
+  template:
+    metadata:
+      name: cloudflare-dns-homelab-cert-manager
+      namespace: cert-manager
+    type: Opaque

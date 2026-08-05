@@ -1,0 +1,4 @@
+# Vendored from bitnami-labs/sealed-secrets at commit
+# de72a97b196d2e5df0751d8105d6788c20adbb4c (chart 2.19.1, controller 0.38.4).
+# Keep the historical controller name expected by kubeseal.
+fullnameOverride: sealed-secrets-controller

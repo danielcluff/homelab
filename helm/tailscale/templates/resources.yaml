@@ -7,6 +7,7 @@ kind: ServiceAccount
 metadata:
   name: tailscale
   namespace: tailscale
+automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -37,6 +38,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: tailscale-state
   namespace: tailscale
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     app: tailscale
     component: subnet-router
@@ -83,7 +86,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: tailscale
-          image: tailscale/tailscale:latest
+          image: tailscale/tailscale:v1.96.5
           imagePullPolicy: IfNotPresent
           env:
             # Auth key from secret
@@ -101,12 +104,22 @@ spec:
             # State directory for persistence
             - name: TS_STATE_DIR
               value: "/var/lib/tailscale"
+            # The tailnet requires hardware attestation. Kubernetes Secret
+            # state is portable and cannot hold TPM-bound keys, so persist
+            # node state on the Longhorn PVC instead.
+            - name: TS_KUBE_SECRET
+              value: ""
             # Hostname for Tailscale device
             - name: TS_HOSTNAME
               value: "homelab-k8s-subnet-router"
             # Use kernel networking for better performance
             - name: TS_USERSPACE
               value: "false"
+            # Talos does not expose the legacy iptables kernel/module layout
+            # expected by the container. Use Tailscale's native nftables
+            # backend, which is compatible with the Cilium host network.
+            - name: TS_DEBUG_FIREWALL_MODE
+              value: "nftables"
             # Tag for ACL and auto-approval
             - name: TS_EXTRA_ARGS
               value: "--advertise-tags=tag:subnet-router"

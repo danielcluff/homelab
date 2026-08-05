@@ -11,6 +11,10 @@ metadata:
     environment: homelab
 spec:
   replicas: 1
+  # The workspace and shared volumes are ReadWriteOnce. Stop the old pod before
+  # creating its replacement so Longhorn can detach and reattach cleanly.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: code-server
@@ -123,6 +127,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: devenv-homelab-workspace
   namespace: devenv
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     app: code-server
     environment: homelab

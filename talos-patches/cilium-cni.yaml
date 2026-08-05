@@ -1,0 +1,10 @@
+# Disable the Talos-managed Flannel deployment so Cilium can own CNI.
+#
+# Keep kube-proxy enabled during the initial migration. Replacing kube-proxy is
+# intentionally a separate, optional maintenance operation after Cilium and
+# MetalLB have been validated.
+cluster:
+  network:
+    cni:
+      name: none
+

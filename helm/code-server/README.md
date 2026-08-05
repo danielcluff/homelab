@@ -34,7 +34,7 @@ Longhorn Storage
 2. Namespace and shared storage created:
    ```bash
    kubectl create namespace devenv
-   kubectl apply -f ../../manifests/devenv-shared-pvc.yaml
+   helm upgrade --install code-server . -n devenv
    ```
 
 3. TLS certificate copied to devenv namespace:

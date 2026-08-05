@@ -1,0 +1,6 @@
+apiVersion: v2
+name: homelab-uptime-kuma
+description: Homelab Uptime Kuma deployment
+type: application
+version: 1.0.0
+appVersion: "1"

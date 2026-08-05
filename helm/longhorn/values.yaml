@@ -2,33 +2,39 @@
 # Longhorn configuration for homelab
 # Persistent storage solution
 
-# Default settings for single node cluster
+# Default settings for the three-node cluster
 defaultSettings:
-  # Set replica count to 1 for single node (increase when you add more nodes)
-  defaultReplicaCount: 1
-  # Allow scheduling on nodes with existing replicas (needed for single node)
+  # Keep a second copy on another node so one node can be drained safely.
+  defaultReplicaCount: 2
+  # Prefer separate nodes, but do not leave a volume unschedulable if the
+  # cluster is temporarily degraded.
   replicaSoftAntiAffinity: true
+  # Rebalance replicas away from the control plane as capacity becomes
+  # available. Best-effort avoids unnecessary churn once placement is safe.
+  replicaAutoBalance: best-effort
+  # Refuse a node drain if it would remove the last healthy replica.
+  nodeDrainPolicy: block-if-contains-last-replica
   # Storage path on the node
   defaultDataPath: /var/lib/longhorn
 
 # Expose Longhorn UI via Traefik ingress
-  ingress:
-    enabled: true
-    ingressClassName: traefik
-    host: longhorn.elate.me
-    tls: true
-    tlsSecret: elate.me-tls
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-cloudflare
-      traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
-      traefik.ingress.kubernetes.io/router.tls: "true"
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  host: longhorn.elate.me
+  tls: true
+  tlsSecret: elate.me-tls
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 
 # Persistence settings
 persistence:
   defaultClass: true
-  defaultClassReplicaCount: 1
+  defaultClassReplicaCount: 2
 
-# Tolerations for control-plane node (single node cluster)
+# Tolerations allow Longhorn to use all three storage nodes.
 tolerations:
   - key: node-role.kubernetes.io/control-plane
     operator: Exists

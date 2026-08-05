@@ -10,7 +10,7 @@ Grafana datasources are automatically configured using Kubernetes ConfigMaps. Th
 
 ### Current Configuration
 
-**Location**: `manifests/grafana-datasources.yaml`
+**Location**: `helm/grafana/templates/grafana-datasources.yaml`
 
 **Configured Datasources**:
 
@@ -26,7 +26,7 @@ Grafana datasources are automatically configured using Kubernetes ConfigMaps. Th
 
 ### Adding New Datasources
 
-Edit `manifests/grafana-datasources.yaml` and add to the `datasources` list:
+Edit `helm/grafana/templates/grafana-datasources.yaml` and add to the `datasources` list:
 
 ```yaml
 - name: My New Source
@@ -40,7 +40,7 @@ Edit `manifests/grafana-datasources.yaml` and add to the `datasources` list:
 Then apply and restart:
 
 ```bash
-kubectl apply -f manifests/grafana-datasources.yaml
+helm upgrade grafana helm/grafana -n monitoring
 kubectl rollout restart deployment grafana -n monitoring
 ```
 
@@ -219,7 +219,7 @@ spec:
 
 All configurations are in Git:
 
--   **Grafana datasources**: `manifests/grafana-datasources.yaml`
+-   **Grafana datasources**: `helm/grafana/templates/grafana-datasources.yaml`
 -   **Uptime Kuma script**: `scripts/setup-uptime-kuma.sh`
 -   **Service manifests**: `manifests/*.yaml`
 
@@ -237,7 +237,7 @@ All configurations are in Git:
 kubectl apply -f manifests/
 
 # Update Grafana datasources
-kubectl apply -f manifests/grafana-datasources.yaml
+helm upgrade grafana helm/grafana -n monitoring
 kubectl rollout restart deployment grafana -n monitoring
 
 # Setup Uptime Kuma monitors
