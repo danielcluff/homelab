@@ -21,6 +21,43 @@ server:
     size: 20Gi
     storageClass: longhorn
 
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: public-hosting
+        rules:
+          - alert: PublicTraefikMetricsUnavailable
+            expr: sum(up{namespace="traefik-public", app_kubernetes_io_name="traefik"}) < 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Public Traefik metrics are unavailable
+              description: Prometheus cannot scrape either isolated public Traefik replica.
+          - alert: CloudflaredMetricsUnavailable
+            expr: sum(up{namespace="cloudflare-tunnel", service="cloudflared-metrics"}) < 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Cloudflare Tunnel metrics are unavailable
+              description: Prometheus cannot scrape either cloudflared connector.
+          - alert: PublicSiteDeploymentUnavailable
+            expr: kube_deployment_status_replicas_available{namespace="public-sites", deployment=~"elate-me|elate-biz"} < 1
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: Public site deployment has no available replicas
+              description: The {{ $labels.deployment }} deployment has no available replicas.
+          - alert: PublicGatewayReplicaDegraded
+            expr: kube_deployment_status_replicas_available{namespace=~"cloudflare-tunnel|traefik-public", deployment=~"cloudflared|traefik-public"} < kube_deployment_spec_replicas{namespace=~"cloudflare-tunnel|traefik-public", deployment=~"cloudflared|traefik-public"}
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: Public gateway is running below desired replicas
+              description: The {{ $labels.namespace }}/{{ $labels.deployment }} deployment is degraded.
+
 prometheus-node-exporter:
   enabled: true
-

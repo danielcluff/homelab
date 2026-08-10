@@ -35,6 +35,10 @@ kubectl get pods -n cloudflare-tunnel
 kubectl logs -n cloudflare-tunnel deployment/cloudflared
 ```
 
+The `cloudflared-metrics` Service is annotated for Prometheus discovery on
+TCP/2000. The monitoring and cloudflared Cilium policies allow only this exact
+scrape path.
+
 ## Publishing an application
 
 Do not point a tunnel route at the internal Traefik controller or directly at

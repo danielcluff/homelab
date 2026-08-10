@@ -71,7 +71,8 @@ socket.on('connect_error', (error) => {
 // Monitor configuration
 const monitors = [
     // External services (HTTPS)
-    { name: 'Heimdall Dashboard', type: 'http', url: 'https://elate.me' },
+    { name: 'Elate.me Public Site', type: 'http', url: 'https://elate.me' },
+    { name: 'Elate.biz Public Site', type: 'http', url: 'https://elate.biz' },
     { name: 'Grafana', type: 'http', url: 'https://grafana.elate.me' },
     { name: 'Longhorn UI', type: 'http', url: 'https://longhorn.elate.me' },
     { name: 'Pi-hole Admin', type: 'http', url: 'https://pihole.elate.me/admin' },

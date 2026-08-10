@@ -73,6 +73,10 @@ enforce the Kubernetes Restricted Pod Security standard. This admission-time
 control complements Cilium by rejecting public-path pods that request unsafe
 privilege, capability, user, or seccomp settings.
 
+Prometheus has exact egress to cloudflared TCP/2000 and public Traefik
+TCP/9100. The reciprocal public gateway policies permit those scrape paths;
+neither metrics endpoint is exposed outside the cluster.
+
 ### Heimdall
 
 Heimdall is the first enforced namespace. Its Cilium policy allows:

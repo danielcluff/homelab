@@ -17,6 +17,19 @@ Grafana datasources are automatically configured using Kubernetes ConfigMaps. Th
 -   **Prometheus** - `http://prometheus-server.monitoring.svc.cluster.local` (default)
 -   **Alertmanager** - `http://prometheus-alertmanager.monitoring.svc.cluster.local:9093`
 
+### Public hosting alerts
+
+Prometheus scrapes both cloudflared connectors and both isolated public
+Traefik replicas. The rules in `helm/prometheus/values.yaml` alert when:
+
+- neither cloudflared connector can be scraped;
+- neither public Traefik replica can be scraped;
+- either public site has zero available replicas; or
+- cloudflared or public Traefik remains below its desired replica count.
+
+The rules are evaluated locally and sent to Alertmanager. Alertmanager still
+needs a real notification receiver before alerts can leave the cluster.
+
 ### How It Works
 
 1. ConfigMap `grafana-datasources` contains datasource definitions

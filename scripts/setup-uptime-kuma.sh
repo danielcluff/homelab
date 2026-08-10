@@ -111,7 +111,8 @@ EOF
 echo "Creating monitors for homelab services..."
 echo ""
 
-create_monitor "Heimdall Dashboard" "https://elate.me" "https"
+create_monitor "Elate.me Public Site" "https://elate.me" "https"
+create_monitor "Elate.biz Public Site" "https://elate.biz" "https"
 create_monitor "Grafana" "https://grafana.elate.me" "https"
 create_monitor "Longhorn UI" "https://longhorn.elate.me" "https"
 create_monitor "Pi-hole Admin" "https://pihole.elate.me/admin" "https"

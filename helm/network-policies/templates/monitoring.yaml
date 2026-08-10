@@ -105,6 +105,22 @@ specs:
               - { port: "9100", protocol: TCP }
       - toEndpoints:
           - matchLabels:
+              io.kubernetes.pod.namespace: traefik-public
+              app.kubernetes.io/name: traefik
+              app.kubernetes.io/instance: traefik-public-traefik-public
+        toPorts:
+          - ports:
+              - { port: "9100", protocol: TCP }
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: cloudflare-tunnel
+              app.kubernetes.io/name: cloudflared
+              app.kubernetes.io/instance: cloudflared
+        toPorts:
+          - ports:
+              - { port: "2000", protocol: TCP }
+      - toEndpoints:
+          - matchLabels:
               io.kubernetes.pod.namespace: monitoring
               app.kubernetes.io/instance: prometheus
         toPorts:

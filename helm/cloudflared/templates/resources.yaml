@@ -118,6 +118,10 @@ kind: Service
 metadata:
   name: cloudflared-metrics
   namespace: cloudflare-tunnel
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.metrics.port | quote }}
+    prometheus.io/path: /metrics
   labels:
     app.kubernetes.io/name: cloudflared
     app.kubernetes.io/instance: cloudflared
