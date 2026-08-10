@@ -4,6 +4,7 @@ namespaces:
   - name: cloudflare-tunnel
     classification: public
     mode: enforce
+    podSecurityStandard: restricted
   - name: cert-manager
     classification: infrastructure
     mode: enforce
@@ -43,6 +44,7 @@ namespaces:
   - name: public-sites
     classification: public
     mode: enforce
+    podSecurityStandard: restricted
   - name: registry
     classification: internal
     mode: enforce
@@ -58,6 +60,7 @@ namespaces:
   - name: traefik-public
     classification: public
     mode: enforce
+    podSecurityStandard: restricted
   - name: uptime-kuma
     classification: internal
     mode: enforce

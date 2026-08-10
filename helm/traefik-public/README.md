@@ -17,6 +17,9 @@ separate from the LAN-facing `traefik` release and has these boundaries:
   entrypoint;
 - Cilium permits no application backends until each selector and port is
   explicitly added.
+- two resource-bounded replicas use preferred cross-node spreading and a
+  PodDisruptionBudget requiring one available controller;
+- the namespace enforces the Kubernetes Restricted Pod Security standard.
 
 ## Install
 

@@ -229,6 +229,11 @@ Cloudflare Tunnel
 
 **Status**: Running; both `elate.me` and `elate.biz` are routed through it
 
+The complete public path uses two cloudflared connectors, two public Traefik
+replicas, and two replicas per public site. Public-path namespaces enforce the
+Restricted Pod Security standard, and disruption budgets preserve one replica
+of each public component during voluntary maintenance.
+
 ### 3. Longhorn Distributed Storage
 
 **Purpose**: Persistent storage for Kubernetes volumes

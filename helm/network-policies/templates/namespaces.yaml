@@ -9,9 +9,18 @@ metadata:
   labels:
     homelab.elate.me/classification: {{ .classification | quote }}
     homelab.elate.me/policy-mode: {{ .mode | quote }}
+    {{- with .podSecurityStandard }}
+    pod-security.kubernetes.io/audit: {{ . | quote }}
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/enforce: {{ . | quote }}
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: {{ . | quote }}
+    pod-security.kubernetes.io/warn-version: latest
+    {{- end }}
     {{- if .privileged }}
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/warn-version: latest
     {{- end }}
 {{- end }}

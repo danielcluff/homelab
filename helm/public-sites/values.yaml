@@ -3,6 +3,8 @@ image:
   tag: "1.29.5-alpine"
   pullPolicy: IfNotPresent
 
+replicaCount: 2
+
 sites:
   - name: elate-me
     domain: elate.me

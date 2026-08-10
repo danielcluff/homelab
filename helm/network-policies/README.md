@@ -68,6 +68,11 @@ Traefik controller. cloudflared has no direct application-backend egress. Each
 site accepts only the exact public-Traefik workload and node health probes on
 TCP/8080, and both site pods have all egress denied.
 
+The `cloudflare-tunnel`, `traefik-public`, and `public-sites` namespaces also
+enforce the Kubernetes Restricted Pod Security standard. This admission-time
+control complements Cilium by rejecting public-path pods that request unsafe
+privilege, capability, user, or seccomp settings.
+
 ### Heimdall
 
 Heimdall is the first enforced namespace. Its Cilium policy allows:

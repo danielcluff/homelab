@@ -2,6 +2,10 @@ traefik:
   deployment:
     replicas: 2
 
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
   ingressClass:
     enabled: true
     isDefaultClass: false
@@ -59,6 +63,8 @@ traefik:
     runAsGroup: 65532
     runAsNonRoot: true
     runAsUser: 65532
+    seccompProfile:
+      type: RuntimeDefault
 
   securityContext:
     allowPrivilegeEscalation: false
@@ -66,6 +72,25 @@ traefik:
       drop:
         - ALL
     readOnlyRootFilesystem: true
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+                app.kubernetes.io/instance: traefik-public-traefik-public
 
   additionalArguments:
     - --global.checknewversion=false

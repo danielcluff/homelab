@@ -12,6 +12,12 @@ are routed through the isolated `traefik-public` controller using standard
 Kubernetes Ingress resources. Neither site has a MetalLB address, local DNS
 entry, or origin certificate.
 
+Each site runs two non-root replicas with read-only root filesystems, dropped
+Linux capabilities, RuntimeDefault seccomp, resource limits, preferred
+cross-node spreading, and a PodDisruptionBudget requiring one available pod.
+The `public-sites` namespace enforces the Kubernetes Restricted Pod Security
+standard.
+
 ```bash
 # Rebuild/push elate.me image (slides from ~/dev/hosting-at-home/dist)
 ./scripts/deploy-elate-me-hosting.sh
