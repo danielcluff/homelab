@@ -20,17 +20,23 @@ Mac 2 (SheepShaver) ─┘    (K8s pod)       └─ OS 9 VM 2
 
 ## Deployment
 
-The manifest is already applied. Check status:
+The Helm release is installed but disabled by default with `replicaCount: 0` because this VPN is only needed for occasional classic Mac OS networking. Check status:
 
 ```bash
 kubectl get all -n openvpn
 kubectl get pvc -n openvpn
 ```
 
-To redeploy:
+To enable it temporarily:
 
 ```bash
-helm upgrade --install openvpn helm/openvpn -n openvpn
+helm upgrade --install openvpn helm/openvpn -n openvpn --set replicaCount=1
+```
+
+Disable it again when finished:
+
+```bash
+helm upgrade openvpn helm/openvpn -n openvpn --set replicaCount=0
 ```
 
 ## PKI Initialization (One-Time Setup)

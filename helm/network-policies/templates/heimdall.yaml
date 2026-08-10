@@ -1,0 +1,66 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "heimdall") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: heimdall-enforced
+  namespace: heimdall
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: heimdall
+      app.kubernetes.io/name: heimdall
+  ingress:
+    # Requests proxied by the internal Traefik ingress controller.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik
+            app.kubernetes.io/name: traefik
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+    # Kubelet/Cilium health probes originate from the local or remote node.
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+  egress:
+    # Cluster DNS, including TCP fallback for large responses.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # Heimdall integrations may fetch icons and application APIs.
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+    # Permit HTTP(S) status/API integrations with services on the home LAN.
+    - toCIDR:
+        - 192.168.1.0/24
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+{{- end }}
+{{- end }}

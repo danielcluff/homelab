@@ -1,0 +1,17 @@
+{{- range .Values.namespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .name }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    homelab.elate.me/classification: {{ .classification | quote }}
+    homelab.elate.me/policy-mode: {{ .mode | quote }}
+    {{- if .privileged }}
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+    {{- end }}
+{{- end }}

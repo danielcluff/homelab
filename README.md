@@ -2,7 +2,7 @@
 
 Repository for managing a Kubernetes homelab cluster running on Talos Linux.
 
-**Cluster**: 3 nodes (1 control plane + 2 workers) running Talos v1.11.6 / Kubernetes v1.34.1
+**Cluster**: 3 nodes (1 control plane + 2 workers) running Talos v1.13.8 / Kubernetes v1.34.1 with Cilium v1.19.6
 
 See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details on LoadBalancer configuration.
 
@@ -53,6 +53,19 @@ All nodes use network interface `enp2s0` with gateway `192.168.1.1`.
 -   **MetalLB IP Pool**: 192.168.1.50-99 (50 addresses for LoadBalancer services)
 -   **Pod Network**: 10.244.0.0/16
 -   **Service Network**: 10.96.0.0/12
+-   **CNI**: Cilium 1.19.6 with Hubble; kube-proxy retained
+
+### Network Policy Rollout
+
+Namespace classifications and policies are managed by the
+`helm/network-policies/` chart. The current `observe` stage installs an
+explicit allow-all policy in each managed namespace, so Cilium policy handling
+is active without restricting traffic. Replace the staged policy with verified
+DNS, ingress, monitoring, and application allow rules before enabling default
+deny for a namespace.
+
+Infrastructure and system namespaces must not be the first enforcement target.
+See `helm/network-policies/README.md` for the rollout procedure.
 
 ---
 
@@ -198,6 +211,24 @@ kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/co
 -   TLS with Let's Encrypt certificates via cert-manager
 -   Access and general logging enabled
 
+### 2a. Public Traefik Ingress Controller
+
+**Purpose**: Isolated ingress tier for applications published through
+Cloudflare Tunnel
+
+**Configuration**:
+
+-   Namespace and release: `traefik-public`
+-   Service: ClusterIP-only on TCP/80; no MetalLB or node exposure
+-   IngressClass: `traefik-public` (non-default)
+-   Watches only explicitly listed public namespaces
+-   Dashboard and Traefik CRD provider disabled
+-   Namespace-scoped application RBAC and fail-closed Cilium policy
+-   Config files: `helm/traefik-public/` and
+    `helm/network-policies/templates/traefik-public.yaml`
+
+**Status**: Running; both `elate.me` and `elate.biz` are routed through it
+
 ### 3. Longhorn Distributed Storage
 
 **Purpose**: Persistent storage for Kubernetes volumes
@@ -252,7 +283,6 @@ kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/co
 -   `homelab.elate.me` → 192.168.1.50
 -   `grafana.elate.me` → 192.168.1.50
 -   `uptime.elate.me` → 192.168.1.50
--   `audio.elate.me` → 192.168.1.50
 
 ### 5. Heimdall Application Dashboard
 
@@ -292,20 +322,8 @@ kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/co
 -   Docker Registry v2
 -   Image deletion enabled
 -   CORS configured for web access
--   Used by Moseca for container images
-
-### 7. Moseca (Audio Processing)
-
-**Purpose**: Audio processing application
-
-**Configuration**:
-
--   Namespace: `moseca`
--   URL: `https://audio.elate.me`
--   Image: `192.168.1.53:5000/moseca:latest` (from local registry)
--   Helm chart: `helm/moseca/`
-
-**Status**: Running
+-   Stores locally built workload images, including the custom `elate-me` site image
+-   Prefer the private MetalLB endpoint from LAN build clients; use `registry.elate.me` only where local DNS resolves it to the internal ingress
 
 ---
 
@@ -792,54 +810,21 @@ kubectl get events -n <namespace> --sort-by='.lastTimestamp'
 
 ### Deployment Workflow
 
-1. **Deploy your application**
-
-    ```bash
-    kubectl apply -f your-app.yaml
-    ```
-
-2. **Create an Ingress** (for HTTP/HTTPS access)
-
-    ```yaml
-    apiVersion: networking.k8s.io/v1
-    kind: Ingress
-    metadata:
-        name: myapp
-        namespace: default
-        annotations:
-            cert-manager.io/cluster-issuer: letsencrypt-cloudflare
-            traefik.ingress.kubernetes.io/router.tls: "true"
-    spec:
-        ingressClassName: traefik
-        rules:
-            - host: myapp.elate.me
-              http:
-                  paths:
-                      - path: /
-                        pathType: Prefix
-                        backend:
-                            service:
-                                name: myapp-service
-                                port:
-                                    number: 80
-        tls:
-            - secretName: elate.me-tls
-              hosts:
-                  - myapp.elate.me
-    ```
-
-3. **Add DNS record in Pi-hole**
-
-    Edit `helm/pihole/values.yaml` and add under `customDnsEntries`:
-    ```yaml
-    - address: 192.168.1.50
-      domain: myapp.elate.me
-    ```
-
-4. **Access your service**
-    - Browse to: `https://myapp.elate.me`
+1. Create a Helm chart under `helm/<service>/` containing the workload,
+   ClusterIP Service, and any Ingress. Do not add standalone service manifests.
+2. Classify the namespace in `helm/network-policies/values.yaml` and add exact,
+   reciprocal gateway-to-backend rules before enforcing it.
+3. For an internal service, use the default `traefik` IngressClass and add its
+   Pi-hole record pointing to `192.168.1.50`.
+4. For a public service, use a `public` namespace, the `traefik-public`
+   IngressClass, and a Cloudflare Tunnel hostname route targeting only
+   `traefik-public.traefik-public.svc.cluster.local:80`.
+5. Install with `helm upgrade --install`, then verify the endpoint and inspect
+   Hubble for unexpected denied flows.
 
 ### Using Persistent Storage
+
+Add persistent storage to the service's Helm templates, for example:
 
 ```yaml
 apiVersion: v1
@@ -1008,13 +993,13 @@ Services to consider deploying:
 
 The cluster is configured with:
 
--   **Talos Version**: v1.11.6
+-   **Talos Version**: v1.13.8
 -   **Kubernetes Version**: v1.34.1
 -   **Nodes**: 3 (1 control plane + 2 workers)
 -   **Network Interface**: enp2s0 (all nodes)
 -   **Control Plane Endpoint**: https://192.168.1.41:6443
 -   **Install Disk**: /dev/nvme0n1 (all nodes)
--   **Factory Image**: factory.talos.dev/installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac:v1.11.6
+-   **Factory Image**: factory.talos.dev/installer/613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245:v1.13.8
 
 ### Talos Patches
 
@@ -1102,45 +1087,32 @@ kubectl get nodes -w
 ```
 homelab/
  ├── README.md                          # This file
+ ├── AGENTS.md                          # Codex repository guidance
  ├── CLAUDE.md                          # Claude Code guidance
  ├── MONITORING_SETUP.md                # Monitoring setup guide
  ├── QUICK_START_MONITORING.md          # Quick monitoring reference
  ├── generate-talos-config.sh           # Script to generate node configurations
- ├── helm/                              # Helm chart configurations
- │   ├── metallb/
- │   │   ├── values.yaml                # MetalLB configuration
- │   │   ├── config.yaml                # MetalLB config CRD
- │   │   └── ipaddresspool.yaml         # IP pool definition
- │   ├── traefik/
- │   │   └── values.yaml                # Traefik configuration
- │   ├── longhorn/
- │   │   └── values.yaml                # Longhorn configuration
- │   ├── pihole/
- │   │   └── values.yaml                # Pi-hole configuration
- │   ├── heimdall/
- │   │   └── values.yaml                # Heimdall configuration
- │   └── code-server/
- │       ├── values-main.yaml           # Main dev environment (dev.elate.me)
- │       ├── values-homelab.yaml        # Homelab management (homelab.elate.me)
- │       └── values-project1.yaml       # Project template
- ├── manifests/                         # Kubernetes manifests
+ ├── helm/                              # Helm charts and upstream values
+ │   ├── cilium/                        # CNI and policy-engine values
+ │   ├── cloudflared/                   # Cloudflare Tunnel connector
+ │   ├── code-server/                   # Development environments
+ │   ├── grafana/                       # Grafana workload and provisioning
+ │   ├── network-policies/              # Cilium policies and classifications
+ │   ├── openvpn/                       # Disabled TAP VPN for classic Mac OS
+ │   ├── public-sites/                  # elate.me and elate.biz
+ │   ├── registry/                      # Local image registry
+ │   ├── sealed-secrets/                # Vendored controller chart
+ │   ├── tailscale/                     # Subnet router
+ │   ├── traefik-public/                # Isolated public ingress
+ │   └── uptime-kuma/                   # Uptime monitoring
+ ├── manifests/                         # Supporting cluster-wide resources
  │   ├── letsencrypt-cloudflare-issuer.yaml  # Let's Encrypt ClusterIssuer
  │   ├── wildcard-cert-letsencrypt.yaml      # *.elate.me certificate
  │   ├── cluster-issuer.yaml            # Self-signed issuer (fallback)
  │   ├── https-redirect-middleware.yaml  # HTTP→HTTPS redirect
- │   ├── code-server-main.yaml          # Main code-server
- │   ├── code-server-homelab.yaml       # Homelab management code-server
- │   ├── code-server-homelab-rbac.yaml  # Cluster admin RBAC
- │   ├── devenv-shared-pvc.yaml         # Shared 50Gi dev storage
- │   ├── devpod-rbac.yaml              # DevPod RBAC
- │   ├── grafana-datasources.yaml       # Grafana provisioning
- │   ├── grafana-ingress.yaml           # Grafana ingress
+ │   ├── devpod-rbac.yaml               # DevPod RBAC
  │   ├── longhorn-ingress.yaml          # Longhorn ingress
  │   ├── pihole-ingress.yaml            # Pi-hole ingress
- │   ├── registry.yaml                  # Docker registry
- │   ├── moseca.yaml                    # Moseca audio app
- │   ├── uptime-kuma.yaml              # Uptime monitoring
- │   ├── tailscale-subnet-router.yaml   # Tailscale VPN
  │   └── metallb-*.yaml                 # MetalLB security policies
  ├── talos-patches/                     # Talos machine config patches
  │   ├── fix-nodeip-controlplane.yaml

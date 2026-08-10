@@ -1,0 +1,69 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "cert-manager") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cert-manager-enforced
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+  ingress:
+    # Prometheus scrapes controller, cainjector, and webhook metrics.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app.kubernetes.io/instance: prometheus
+            app.kubernetes.io/name: prometheus
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - port: "9402"
+              protocol: TCP
+    # Kubelet health checks plus API-server admission webhook calls. Depending
+    # on the node path, these use host or remote-node identities.
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "6080"
+              protocol: TCP
+            - port: "9403"
+              protocol: TCP
+            - port: "10250"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # Kubernetes service traffic is translated to the control-plane host on
+    # TCP/6443 before endpoint policy evaluation.
+    - toEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+    # ACME directory/challenge traffic and Cloudflare's DNS API use HTTPS.
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+{{- end }}
+{{- end }}

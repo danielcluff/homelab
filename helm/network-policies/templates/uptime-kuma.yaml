@@ -1,0 +1,102 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "uptime-kuma") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: uptime-kuma-enforced
+  namespace: uptime-kuma
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app: uptime-kuma
+  ingress:
+    # Browser and API requests proxied by the internal ingress controller.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik
+            app.kubernetes.io/name: traefik
+      toPorts:
+        - ports:
+            - port: "3001"
+              protocol: TCP
+    # Kubelet liveness and readiness probes originate from a node identity.
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "3001"
+              protocol: TCP
+  egress:
+    # Cluster DNS, including TCP fallback for large responses.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # Most internal HTTPS monitors resolve to the Traefik LoadBalancer and are
+    # translated to the Traefik pod endpoint by Cilium.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik
+            app.kubernetes.io/name: traefik
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    # Direct service monitors for Prometheus and Alertmanager.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app.kubernetes.io/instance: prometheus
+            app.kubernetes.io/name: prometheus
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app.kubernetes.io/instance: prometheus
+            app.kubernetes.io/name: alertmanager
+      toPorts:
+        - ports:
+            - port: "9093"
+              protocol: TCP
+    # Pi-hole is monitored through its dedicated private LoadBalancer address.
+    - toCIDR:
+        - 192.168.1.0/24
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    # Cilium translates the Pi-hole LoadBalancer VIP to its pod endpoint before
+    # policy evaluation, so retain the endpoint identity as well as the LAN CIDR.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: pihole
+            app.kubernetes.io/name: pihole
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    # The apex elate.me monitor resolves publicly through Cloudflare. No
+    # notification providers are configured, so other internet ports stay shut.
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+{{- end }}
+{{- end }}

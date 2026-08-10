@@ -1,0 +1,75 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "longhorn-system") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: longhorn-enforced
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector: {}
+  ingress:
+    # Longhorn managers, CSI components, instance managers, engines, replicas,
+    # backing images, and recurring jobs use both fixed and dynamic ports. Keep
+    # all of that storage traffic inside the Longhorn namespace.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: longhorn-system
+    # The only application-facing Longhorn endpoint is its UI through Traefik.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik
+            app.kubernetes.io/name: traefik
+      toPorts:
+        - ports:
+            - { port: "8000", protocol: TCP }
+    # Prometheus scrapes the Longhorn manager metrics endpoint.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app.kubernetes.io/name: prometheus
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - { port: "9500", protocol: TCP }
+    # API-server webhooks, kubelet probes, iSCSI volume attachment, and future
+    # RWX/NFS mounts originate from a local or remote node identity.
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "2049", protocol: TCP }
+            - { port: "3260", protocol: TCP }
+            - { port: "9501", protocol: TCP }
+            - { port: "9502", protocol: TCP }
+            - { port: "9503", protocol: TCP }
+            - { port: "9808", protocol: TCP }
+  egress:
+    # Includes manager/CSI APIs and dynamic engine/replica ranges such as
+    # TCP/8500-8504, TCP/10000-30000, and backing-image traffic.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: longhorn-system
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - { port: "53", protocol: UDP }
+            - { port: "53", protocol: TCP }
+    # Controllers and CSI sidecars watch Kubernetes resources through the
+    # control-plane endpoint after service translation.
+    - toEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "6443", protocol: TCP }
+    # Longhorn version checks and optional HTTPS backup stores.
+    - toEntities: [world]
+      toPorts:
+        - ports:
+            - { port: "443", protocol: TCP }
+{{- end }}
+{{- end }}

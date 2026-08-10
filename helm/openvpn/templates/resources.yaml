@@ -29,7 +29,7 @@ metadata:
     component: tap-bridge
 spec:
   serviceName: openvpn-tap
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: openvpn

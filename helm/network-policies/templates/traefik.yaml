@@ -1,0 +1,103 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "traefik") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: traefik-enforced
+  namespace: traefik
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  ingress:
+    # Web entrypoints. LAN traffic forwarded through MetalLB may be identified
+    # as world; only the two proxy ports are exposed by this rule.
+    - fromEntities: [cluster, host, remote-node, world]
+      toPorts:
+        - ports:
+            - { port: "80", protocol: TCP }
+            - { port: "443", protocol: TCP }
+    # Kubelet health probes target the internal Traefik entrypoint.
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+    # Prometheus metrics.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app.kubernetes.io/name: prometheus
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - { port: "9100", protocol: TCP }
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - { port: "53", protocol: UDP }
+            - { port: "53", protocol: TCP }
+    # Watch Ingress, Service, EndpointSlice, Secret, and Traefik CRD objects.
+    - toEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "6443", protocol: TCP }
+    # Explicit currently routed application backends.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: devenv
+            app: code-server
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: heimdall
+            app.kubernetes.io/name: heimdall
+      toPorts:
+        - ports:
+            - { port: "80", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: longhorn-system
+            app: longhorn-ui
+      toPorts:
+        - ports:
+            - { port: "8000", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app: grafana
+      toPorts:
+        - ports:
+            - { port: "3000", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: pihole
+            app.kubernetes.io/name: pihole
+      toPorts:
+        - ports:
+            - { port: "80", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: registry
+            app: registry
+      toPorts:
+        - ports:
+            - { port: "5000", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: uptime-kuma
+            app: uptime-kuma
+      toPorts:
+        - ports:
+            - { port: "3001", protocol: TCP }
+{{- end }}
+{{- end }}

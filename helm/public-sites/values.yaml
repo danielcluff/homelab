@@ -1,0 +1,24 @@
+image:
+  repository: nginxinc/nginx-unprivileged
+  tag: "1.29.5-alpine"
+  pullPolicy: IfNotPresent
+
+sites:
+  - name: elate-me
+    domain: elate.me
+    publicIngress: true
+    image:
+      repository: 192.168.1.53:5000/elate-me
+      tag: "hosting-20260806b"
+      pullPolicy: Always
+  - name: elate-biz
+    domain: elate.biz
+    publicIngress: true
+
+resources:
+  requests:
+    cpu: 5m
+    memory: 16Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi

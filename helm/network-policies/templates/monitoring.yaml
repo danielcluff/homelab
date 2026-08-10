@@ -1,0 +1,213 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "monitoring") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: monitoring-enforced
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+specs:
+  # Grafana UI and its two provisioned datasources.
+  - endpointSelector:
+      matchLabels:
+        app: grafana
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: traefik
+              app.kubernetes.io/name: traefik
+        toPorts:
+          - ports:
+              - port: "3000"
+                protocol: TCP
+      - fromEntities: [host, remote-node]
+        toPorts:
+          - ports:
+              - port: "3000"
+                protocol: TCP
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: UDP }
+              - { port: "53", protocol: TCP }
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: monitoring
+              app.kubernetes.io/name: prometheus
+              app.kubernetes.io/component: server
+        toPorts:
+          - ports:
+              - { port: "9090", protocol: TCP }
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: monitoring
+              app.kubernetes.io/name: alertmanager
+        toPorts:
+          - ports:
+              - { port: "9093", protocol: TCP }
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - { port: "80", protocol: TCP }
+              - { port: "443", protocol: TCP }
+
+  # Prometheus server: API consumers plus the observed scrape inventory.
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+        app.kubernetes.io/component: server
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: monitoring
+              app: grafana
+          - matchLabels:
+              io.kubernetes.pod.namespace: uptime-kuma
+              app: uptime-kuma
+        toPorts:
+          - ports:
+              - { port: "9090", protocol: TCP }
+      - fromEntities: [host, remote-node]
+        toPorts:
+          - ports:
+              - { port: "8080", protocol: TCP }
+              - { port: "9090", protocol: TCP }
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: UDP }
+              - { port: "53", protocol: TCP }
+              - { port: "9153", protocol: TCP }
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: cert-manager
+              app.kubernetes.io/instance: cert-manager
+        toPorts:
+          - ports:
+              - { port: "9402", protocol: TCP }
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: traefik
+              app.kubernetes.io/name: traefik
+        toPorts:
+          - ports:
+              - { port: "9100", protocol: TCP }
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: monitoring
+              app.kubernetes.io/instance: prometheus
+        toPorts:
+          - ports:
+              - { port: "8080", protocol: TCP }
+              - { port: "9091", protocol: TCP }
+              - { port: "9093", protocol: TCP }
+      - toEntities: [host, remote-node]
+        toPorts:
+          - ports:
+              - { port: "6443", protocol: TCP }
+              - { port: "9100", protocol: TCP }
+              - { port: "9962", protocol: TCP }
+              - { port: "9963", protocol: TCP }
+              - { port: "9964", protocol: TCP }
+              - { port: "9965", protocol: TCP }
+
+  # kube-state-metrics watches the API and is scraped by Prometheus.
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: kube-state-metrics
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: monitoring
+              app.kubernetes.io/name: prometheus
+              app.kubernetes.io/component: server
+        toPorts:
+          - ports:
+              - { port: "8080", protocol: TCP }
+      - fromEntities: [host, remote-node]
+        toPorts:
+          - ports:
+              - { port: "8080", protocol: TCP }
+              - { port: "8081", protocol: TCP }
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: UDP }
+              - { port: "53", protocol: TCP }
+      - toEntities: [host, remote-node]
+        toPorts:
+          - ports:
+              - { port: "6443", protocol: TCP }
+
+  # Alertmanager API is consumed by Prometheus, Grafana, and Uptime Kuma.
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: alertmanager
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: monitoring
+              app.kubernetes.io/name: prometheus
+              app.kubernetes.io/component: server
+          - matchLabels:
+              io.kubernetes.pod.namespace: monitoring
+              app: grafana
+          - matchLabels:
+              io.kubernetes.pod.namespace: uptime-kuma
+              app: uptime-kuma
+        toPorts:
+          - ports:
+              - { port: "9093", protocol: TCP }
+      - fromEntities: [host, remote-node]
+        toPorts:
+          - ports:
+              - { port: "9093", protocol: TCP }
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: UDP }
+              - { port: "53", protocol: TCP }
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - { port: "443", protocol: TCP }
+
+  # Pushgateway accepts cluster metric pushes and is scraped by Prometheus.
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus-pushgateway
+    ingress:
+      - fromEntities: [cluster, host, remote-node]
+        toPorts:
+          - ports:
+              - { port: "9091", protocol: TCP }
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: UDP }
+              - { port: "53", protocol: TCP }
+{{- end }}
+{{- end }}

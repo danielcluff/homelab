@@ -10,17 +10,20 @@ This repository uses [Bitnami Sealed Secrets](https://github.com/bitnami/sealed-
 
 The managed secrets are:
 
-| Plaintext input                   | Encrypted manifest                             | Resulting Secret                                  | Consumer                               |
-| --------------------------------- | ---------------------------------------------- | ------------------------------------------------- | -------------------------------------- |
-| `secrets/pihole-password.yaml`    | `sealedsecrets/pihole-password-sealed.yaml`    | `pihole/pihole-password` (`password`)             | Pi-hole Helm release                   |
-| Cloudflare DNS token (entered interactively; no plaintext file required) | `sealedsecrets/cloudflare-dns-sealed.yaml` | `cert-manager/cloudflare-dns-homelab-cert-manager` (`api-token`) | `letsencrypt-cloudflare` ClusterIssuer |
+| Plaintext input                                                             | Encrypted manifest                                   | Resulting Secret                                                 | Consumer                               |
+| --------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------- |
+| `secrets/pihole-password.yaml`                                              | `sealedsecrets/pihole-password-sealed.yaml`          | `pihole/pihole-password` (`password`)                            | Pi-hole Helm release                   |
+| Cloudflare DNS token (entered interactively; no plaintext file required)    | `sealedsecrets/cloudflare-dns-sealed.yaml`           | `cert-manager/cloudflare-dns-homelab-cert-manager` (`api-token`) | `letsencrypt-cloudflare` ClusterIssuer |
+| Cloudflare Tunnel token (entered interactively; no plaintext file required) | `sealedsecrets/cloudflared-tunnel-token-sealed.yaml` | `cloudflare-tunnel/cloudflared-tunnel-token` (`api-token`)       | cloudflared Helm release               |
 
 ## Controller installation
 
-The controller runs in `kube-system`. This cluster was installed from the official v0.38.4 release manifest:
+The controller runs in `kube-system` and is managed by the vendored Helm chart in `helm/sealed-secrets/`:
 
 ```bash
-kubectl apply -f https://github.com/bitnami/sealed-secrets/releases/download/v0.38.4/controller.yaml
+helm upgrade --install sealed-secrets helm/sealed-secrets \
+  --namespace kube-system \
+  -f helm/sealed-secrets/values-homelab.yaml
 kubectl rollout status deployment/sealed-secrets-controller -n kube-system
 ```
 
@@ -63,6 +66,24 @@ kubeseal \
   --format yaml \
   --secret-file secrets/cloudflare-dns.yaml \
   --sealed-secret-file sealedsecrets/cloudflare-dns-sealed.yaml
+```
+
+For the tunnel token, avoid a plaintext file by reading it silently and piping
+the generated Secret directly to `kubeseal`:
+
+```bash
+read -s "CLOUDFLARED_TOKEN?Cloudflare tunnel token: "; echo
+kubectl create secret generic cloudflared-tunnel-token \
+  --namespace cloudflare-tunnel \
+  --from-literal=api-token="$CLOUDFLARED_TOKEN" \
+  --dry-run=client -o yaml | \
+kubeseal \
+  --controller-name sealed-secrets-controller \
+  --controller-namespace kube-system \
+  --format yaml \
+  --sealed-secret-file sealedsecrets/cloudflared-tunnel-token-sealed.yaml
+unset CLOUDFLARED_TOKEN
+kubectl apply -f sealedsecrets/cloudflared-tunnel-token-sealed.yaml
 ```
 
 Review only names, namespaces, and encrypted key names before applying; never print plaintext or decoded Kubernetes Secrets:

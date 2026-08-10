@@ -1,0 +1,80 @@
+# Namespace policy rollout state. Most application namespaces are now enforced;
+# keep observe mode only for a deliberate exception while its traffic is audited.
+namespaces:
+  - name: cloudflare-tunnel
+    classification: public
+    mode: enforce
+  - name: cert-manager
+    classification: infrastructure
+    mode: enforce
+  - name: devenv
+    classification: internal
+    mode: enforce
+  - name: devpod
+    classification: internal
+    mode: enforce
+    privileged: true
+  - name: heimdall
+    classification: internal
+    mode: enforce
+  - name: longhorn-system
+    classification: infrastructure
+    mode: enforce
+    privileged: true
+  - name: metallb-system
+    classification: infrastructure
+    # Only the controller is a Cilium-managed pod. The host-network speakers
+    # remain a documented node-boundary exception.
+    mode: enforce
+    privileged: true
+  - name: monitoring
+    classification: infrastructure
+    mode: enforce
+    privileged: true
+  - name: openvpn
+    classification: internal
+    # hostNetwork pods are not governed by namespaced endpoint policy. Keep in
+    # observation until OpenVPN is moved to a dedicated network boundary.
+    mode: observe
+    privileged: true
+  - name: pihole
+    classification: internal
+    mode: enforce
+  - name: public-sites
+    classification: public
+    mode: enforce
+  - name: registry
+    classification: internal
+    mode: enforce
+  - name: tailscale
+    classification: internal
+    # The subnet router uses hostNetwork and Cilium host firewall is disabled.
+    # Do not mark enforce: that would create a false sense of isolation.
+    mode: observe
+    privileged: true
+  - name: traefik
+    classification: infrastructure
+    mode: enforce
+  - name: traefik-public
+    classification: public
+    mode: enforce
+  - name: uptime-kuma
+    classification: internal
+    mode: enforce
+
+# System namespaces are intentionally excluded. Cilium, DNS, API-server,
+# Hubble, and node traffic require a separate infrastructure policy design.
+excludedNamespaces:
+  - cilium-secrets
+  - default
+  - kube-node-lease
+  - kube-public
+  - kube-system
+
+pihole:
+  # MetalLB/router NAT currently presents household DNS traffic with the WAN
+  # address. Update this /32 if the ISP changes the public address.
+  allowedDnsClientCIDRs:
+    - 192.168.1.0/24
+    - 100.64.0.0/10
+    - 38.148.95.69/32

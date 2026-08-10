@@ -1,0 +1,6 @@
+apiVersion: v2
+name: homelab-cloudflared
+description: Outbound-only Cloudflare Tunnel connector for public applications
+type: application
+version: 1.0.0
+appVersion: "2026.7.3"

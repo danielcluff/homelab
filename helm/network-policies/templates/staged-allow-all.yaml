@@ -1,0 +1,22 @@
+{{- range .Values.namespaces }}
+{{- if eq .mode "observe" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: staged-allow-all
+  namespace: {{ .name }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: observe
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - {}
+  egress:
+    - {}
+{{- end }}
+{{- end }}

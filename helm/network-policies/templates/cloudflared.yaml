@@ -1,0 +1,58 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "cloudflare-tunnel") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cloudflared-enforced
+  namespace: cloudflare-tunnel
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflared
+      app.kubernetes.io/instance: cloudflared
+  ingress:
+    # Kubelet probes and optional Prometheus scraping of connector metrics.
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "2000", protocol: TCP }
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app.kubernetes.io/name: prometheus
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - { port: "2000", protocol: TCP }
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - { port: "53", protocol: UDP }
+            - { port: "53", protocol: TCP }
+    # Cloudflare Tunnel uses QUIC over UDP/7844 and can fall back to HTTP/2
+    # over TCP/7844. No application backend is permitted in this initial phase.
+    - toEntities: [world]
+      toPorts:
+        - ports:
+            - { port: "7844", protocol: UDP }
+            - { port: "7844", protocol: TCP }
+    # Isolated public ingress tier. Each application behind it also requires a
+    # separate exact backend rule in traefik-public.yaml.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik-public
+            app.kubernetes.io/name: traefik
+            app.kubernetes.io/instance: traefik-public-traefik-public
+      toPorts:
+        - ports:
+            - { port: "8000", protocol: TCP }
+{{- end }}
+{{- end }}

@@ -1,0 +1,74 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "traefik-public") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: traefik-public-enforced
+  namespace: traefik-public
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+      app.kubernetes.io/instance: traefik-public-traefik-public
+  ingress:
+    # The tunnel is the only HTTP client. The Service maps TCP/80 to this
+    # unprivileged container port.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: cloudflare-tunnel
+            app.kubernetes.io/name: cloudflared
+            app.kubernetes.io/instance: cloudflared
+      toPorts:
+        - ports:
+            - { port: "8000", protocol: TCP }
+    # Kubelet readiness/liveness probes use Traefik's internal entrypoint.
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: monitoring
+            app.kubernetes.io/name: prometheus
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - { port: "9100", protocol: TCP }
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - { port: "53", protocol: UDP }
+            - { port: "53", protocol: TCP }
+    # Watch only the configured public namespaces through the API server.
+    - toEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "6443", protocol: TCP }
+    # Each migrated application requires an exact namespace, workload selector,
+    # and port.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: public-sites
+            app.kubernetes.io/name: public-site
+            app.kubernetes.io/instance: elate-me
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: public-sites
+            app.kubernetes.io/name: public-site
+            app.kubernetes.io/instance: elate-biz
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+{{- end }}
+{{- end }}

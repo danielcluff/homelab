@@ -221,7 +221,7 @@ All configurations are in Git:
 
 -   **Grafana datasources**: `helm/grafana/templates/grafana-datasources.yaml`
 -   **Uptime Kuma script**: `scripts/setup-uptime-kuma.sh`
--   **Service manifests**: `manifests/*.yaml`
+-   **Service definitions**: Helm charts under `helm/`; `manifests/` is reserved for supporting cluster-wide resources
 
 ### Best Practices
 
@@ -233,8 +233,10 @@ All configurations are in Git:
 ### Applying Changes
 
 ```bash
-# Apply all manifests
-kubectl apply -f manifests/
+# Reconcile the monitoring releases
+helm upgrade --install monitoring-baseline helm/monitoring-baseline -n monitoring
+helm upgrade --install grafana helm/grafana -n monitoring
+helm upgrade --install uptime-kuma helm/uptime-kuma -n uptime-kuma
 
 # Update Grafana datasources
 helm upgrade grafana helm/grafana -n monitoring

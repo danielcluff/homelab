@@ -68,7 +68,8 @@ kubectl rollout restart deployment grafana -n monitoring
 
 ### Import Dashboards
 
-Grafana dashboards can also be provisioned! Create `manifests/grafana-dashboards.yaml`:
+Grafana dashboards can also be provisioned. Add their ConfigMap and mounts to
+the `helm/grafana/` chart so the release retains ownership:
 
 ```yaml
 apiVersion: v1
@@ -112,9 +113,10 @@ Re-run the script to apply changes.
 
 ```
 homelab/
-├── manifests/
-│   ├── grafana-datasources.yaml    # Grafana datasource config
-│   └── uptime-kuma.yaml            # Uptime Kuma deployment
+├── helm/
+│   ├── grafana/                    # Grafana workload, ingress, and datasources
+│   ├── monitoring-baseline/        # Monitoring namespace baseline
+│   └── uptime-kuma/                # Uptime Kuma workload and ingress
 ├── scripts/
 │   └── setup-uptime-kuma.sh        # Uptime Kuma setup script
 └── MONITORING_SETUP.md             # Detailed documentation

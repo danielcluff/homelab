@@ -4,9 +4,9 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-Homelab Kubernetes cluster running on Talos Linux v1.11.6 with Kubernetes v1.34.1. Three-node cluster (1 control plane + 2 workers) with MetalLB for load balancing, Traefik for ingress, Longhorn for storage, Pi-hole for DNS, and cert-manager with Let's Encrypt for TLS.
+Homelab Kubernetes cluster running on Talos Linux v1.13.8 with Kubernetes v1.34.1. Three-node cluster (1 control plane + 2 workers) with Cilium for CNI and NetworkPolicy, MetalLB for load balancing, Traefik for ingress, Longhorn for storage, Pi-hole for DNS, and cert-manager with Let's Encrypt for TLS.
 
-All services are accessible under the `*.elate.me` wildcard domain with valid Let's Encrypt certificates via Cloudflare DNS-01 validation.
+Internal web services use the `*.elate.me` wildcard certificate issued through Cloudflare DNS-01. Public apex sites (`elate.me` and `elate.biz`) enter through Cloudflare Tunnel and the isolated public Traefik controller.
 
 ## Common Commands
 
@@ -67,16 +67,19 @@ All nodes use interface `enp2s0` with static IPs, gateway `192.168.1.1`, and DNS
 |---------------|------------------|--------------------------------|--------------|
 | Heimdall      | heimdall         | https://dashboard.elate.me     | Helm         |
 | Traefik       | traefik          | https://traefik.elate.me       | Helm         |
+| Public Traefik| traefik-public   | elate.me, elate.biz (ClusterIP)| Helm         |
 | Pi-hole       | pihole           | https://pihole.elate.me/admin  | Helm         |
 | Longhorn      | longhorn-system  | https://longhorn.elate.me      | Helm         |
 | Grafana       | monitoring       | https://grafana.elate.me       | Helm         |
 | Prometheus    | monitoring       | (internal only)                | Helm         |
-| Uptime Kuma   | uptime-kuma      | https://uptime.elate.me        | Manifest     |
-| Code Server   | devenv           | https://dev.elate.me           | Manifest     |
-| Code Server   | devenv           | https://homelab.elate.me       | Manifest     |
-| Registry      | registry         | https://registry.elate.me      | Manifest     |
-| Moseca (audio)| moseca           | https://audio.elate.me         | Manifest (on-demand) |
-| Tailscale     | tailscale        | (subnet router, no UI)         | Manifest     |
+| Uptime Kuma   | uptime-kuma      | https://uptime.elate.me        | Helm         |
+| Code Server   | devenv           | https://dev.elate.me           | Helm         |
+| Code Server   | devenv           | https://homelab.elate.me       | Helm         |
+| Registry      | registry         | https://registry.elate.me      | Helm         |
+| Tailscale     | tailscale        | (subnet router, no UI)         | Helm         |
+| Cloudflared   | cloudflare-tunnel| (outbound tunnel connector)    | Helm         |
+| Public sites  | public-sites     | https://elate.me, https://elate.biz | Helm    |
+| OpenVPN       | openvpn          | vpn.elate.me (disabled)        | Helm         |
 
 ### Pi-hole Custom DNS Entries
 
@@ -92,7 +95,6 @@ All `*.elate.me` subdomains resolve via Pi-hole (`helm/pihole/values.yaml`):
 | homelab.elate.me      | 192.168.1.50   |
 | grafana.elate.me      | 192.168.1.50   |
 | uptime.elate.me       | 192.168.1.50   |
-| audio.elate.me        | 192.168.1.50   |
 
 ## Repository Structure
 
@@ -114,10 +116,13 @@ homelab/
 │   ├── cert-manager/                  # Official chart values (v1.16.2)
 │   ├── sealed-secrets/                # Vendored official chart (2.19.1)
 │   ├── grafana/                       # Grafana, datasource, and ingress
-│   ├── moseca/                        # On-demand audio service
+│   ├── cloudflared/                   # Cloudflare Tunnel connector
+│   ├── network-policies/              # Cilium policy and namespace classification
 │   ├── openvpn/                       # TAP OpenVPN server
+│   ├── public-sites/                  # elate.me and elate.biz workloads
 │   ├── registry/                      # Local Docker registry
 │   ├── tailscale/                     # Tailscale subnet router
+│   ├── traefik-public/                # Isolated public ingress controller
 │   └── uptime-kuma/                   # Uptime monitoring
 ├── manifests/                         # Raw Kubernetes manifests
 │   ├── cluster-issuer.yaml            # Self-signed issuer (fallback)
@@ -157,14 +162,23 @@ homelab/
 
 ### Adding a New Service
 
-1. Create Helm values file in `helm/<service>/values.yaml` or manifest in `manifests/<service>.yaml`
-2. Create ingress (either in Helm values or as separate manifest)
-3. Add DNS entry to `helm/pihole/values.yaml` under `customDnsEntries` pointing to `192.168.1.50`
-4. Deploy and verify via `kubectl get ingress -A`
+1. Define the service with a Helm chart and values under `helm/<service>/`; new services must not be deployed as standalone manifests.
+2. Create the Ingress through the service's Helm chart.
+3. Add the backend workload selector and destination port to Traefik's egress policy in `helm/network-policies/templates/traefik.yaml`. Without this rule, Cilium will block Traefik from reaching the service and the Ingress will return a gateway error.
+4. Add a DNS entry to `helm/pihole/values.yaml` under `customDnsEntries` pointing to `192.168.1.50`.
+5. Deploy the Helm releases and verify the Ingress, the public endpoint, and Cilium/Hubble for denied Traefik-to-backend flows.
+
+Public services use a separate path: deploy them in a namespace classified
+`public`, expose only a ClusterIP Service, and route them through the isolated
+`traefik-public` controller. Add exact backend rules to
+`templates/traefik-public.yaml` and the reciprocal application policy.
+Cloudflared may reach only the public controller. Never point Cloudflare Tunnel
+at the internal Traefik controller or grant either public gateway broad cluster
+egress.
 
 ### TLS Certificates
 
-All services use a wildcard certificate for `*.elate.me` managed by cert-manager with Let's Encrypt (Cloudflare DNS-01 validation):
+Internal `*.elate.me` services use a wildcard certificate managed by cert-manager with Let's Encrypt (Cloudflare DNS-01 validation):
 
 - **ClusterIssuer**: `letsencrypt-cloudflare` (defined in `manifests/letsencrypt-cloudflare-issuer.yaml`)
 - **Certificate**: `elate-me-tls` in cert-manager namespace (defined in `manifests/wildcard-cert-letsencrypt.yaml`)
@@ -197,15 +211,7 @@ Three code-server instances in the `devenv` namespace share a 50Gi PVC (`devenv-
 
 ### Docker Registry
 
-Local Docker registry at `192.168.1.53:5000` (also at `registry.elate.me`). Used by Moseca for container images. Images are pushed via `docker push registry.elate.me/<image>:<tag>`.
-
-### On-Demand Services
-
-Some services are resource-intensive and should only run when needed. They are scaled to zero by default.
-
-| Service        | Alias  | Start                                                     | Stop                                                       |
-|----------------|--------|-----------------------------------------------------------|-------------------------------------------------------------|
-| Moseca (audio) | audio  | `kubectl scale deployment/moseca -n moseca --replicas=1`  | `kubectl scale deployment/moseca -n moseca --replicas=0`   |
+Local Docker registry at `192.168.1.53:5000` (also exposed internally as `registry.elate.me`). It stores locally built workloads such as the `elate-me` site image. Use the private MetalLB address from LAN clients unless local DNS resolves `registry.elate.me` to the internal Traefik address.
 
 ### Tailscale Remote Access
 

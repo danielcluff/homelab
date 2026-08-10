@@ -1,0 +1,87 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "pihole") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pihole-enforced
+  namespace: pihole
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: pihole
+  ingress:
+    # DNS clients on the LAN, Tailscale, and the router's observed NAT address.
+    - fromCIDR:
+{{ toYaml $.Values.pihole.allowedDnsClientCIDRs | indent 8 }}
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # MetalLB may identify locally forwarded DNS requests as a node.
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # DHCP discovery begins without a configured client address.
+    - fromEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "67"
+              protocol: UDP
+    # The authenticated admin interface is exposed through Traefik only.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik
+            app.kubernetes.io/name: traefik
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+    # Preserve Uptime Kuma's existing HTTPS probe behavior. Pi-hole currently
+    # has no listener on 443, so this returns connection-refused rather than a
+    # policy timeout and keeps the monitoring baseline unchanged.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: uptime-kuma
+            app: uptime-kuma
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+  egress:
+    # Explicit recursive resolvers from helm/pihole/values.yaml. Include TCP
+    # fallback for truncated and DNSSEC responses.
+    - toCIDR:
+        - 1.1.1.1/32
+        - 8.8.8.8/32
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # Gravity/adlist and Pi-hole update checks use standard web protocols.
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+            - port: "123"
+              protocol: UDP
+{{- end }}
+{{- end }}

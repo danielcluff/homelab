@@ -16,6 +16,7 @@ Thumbs.db
 
 # Helm
 charts/
+helm/public-sites/elate-me/hosting/
 
 # Temporary files
 *.tmp

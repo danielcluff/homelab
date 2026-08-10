@@ -36,10 +36,8 @@ logs:
 
 # Additional configuration
 additionalArguments:
-  - "--api.insecure=true"
   - "--providers.kubernetesingress.ingressclass=traefik"
   - "--providers.kubernetescrd"
-  - "--serverstransport.insecureskipverify=true"
 
 # TLS configuration
 tlsStore:

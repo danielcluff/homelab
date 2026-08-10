@@ -1,0 +1,24 @@
+replicaCount: 2
+
+image:
+  repository: cloudflare/cloudflared
+  tag: "2026.7.3"
+  pullPolicy: IfNotPresent
+
+tunnel:
+  existingSecret: cloudflared-tunnel-token
+  tokenKey: api-token
+  # Prefer QUIC but fall back to HTTP/2 when a node's UDP path is unavailable.
+  protocol: auto
+  logLevel: info
+
+metrics:
+  port: 2000
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi

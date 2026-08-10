@@ -1,0 +1,65 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "public-sites") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: public-sites-enforced
+  namespace: public-sites
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: public-site
+      app.kubernetes.io/instance: elate-me
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik-public
+            app.kubernetes.io/name: traefik
+            app.kubernetes.io/instance: traefik-public-traefik-public
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+  # Static web servers have no legitimate outbound dependency.
+  egress: []
+{{- end }}
+{{- end }}
+{{- range .Values.namespaces }}
+{{- if and (eq .name "public-sites") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: elate-biz-public-ingress
+  namespace: public-sites
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: public-site
+      app.kubernetes.io/instance: elate-biz
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik-public
+            app.kubernetes.io/name: traefik
+            app.kubernetes.io/instance: traefik-public-traefik-public
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "8080", protocol: TCP }
+  egress: []
+{{- end }}
+{{- end }}

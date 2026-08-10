@@ -1,0 +1,73 @@
+traefik:
+  deployment:
+    replicas: 2
+
+  ingressClass:
+    enabled: true
+    isDefaultClass: false
+    name: traefik-public
+
+  providers:
+    kubernetesCRD:
+      enabled: false
+    kubernetesIngress:
+      enabled: true
+      allowEmptyServices: false
+      allowExternalNameServices: false
+      ingressClass: traefik-public
+      namespaces:
+        - public-sites
+      publishedService:
+        enabled: false
+
+  ingressRoute:
+    dashboard:
+      enabled: false
+    healthcheck:
+      enabled: false
+
+  api:
+    dashboard: false
+
+  rbac:
+    enabled: false
+
+  service:
+    type: ClusterIP
+
+  ports:
+    web:
+      port: 8000
+      exposedPort: 80
+    websecure:
+      expose:
+        default: false
+
+  logs:
+    general:
+      level: INFO
+    access:
+      enabled: true
+
+  metrics:
+    prometheus:
+      enabled: true
+      service:
+        enabled: true
+
+  podSecurityContext:
+    runAsGroup: 65532
+    runAsNonRoot: true
+    runAsUser: 65532
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  additionalArguments:
+    - --global.checknewversion=false
+    - --global.sendanonymoususage=false
+    - --providers.kubernetesingress.disableclusterscoperesources=true

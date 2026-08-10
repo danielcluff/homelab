@@ -1,0 +1,150 @@
+{{- range .Values.sites }}
+{{- if not .image }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}-content
+  namespace: public-sites
+  labels:
+    app.kubernetes.io/name: public-site
+    app.kubernetes.io/instance: {{ .name }}
+data:
+  index.html: |-
+    Elate.
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: public-sites
+  labels:
+    app.kubernetes.io/name: public-site
+    app.kubernetes.io/instance: {{ .name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: public-site
+      app.kubernetes.io/instance: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: public-site
+        app.kubernetes.io/instance: {{ .name }}
+      {{- if .image }}
+      annotations:
+        # Bust the pod template when the image tag changes.
+        homelab.elate.me/image: "{{ .image.repository }}:{{ .image.tag }}"
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          {{- if .image }}
+          image: "{{ .image.repository }}:{{ .image.tag }}"
+          imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
+          {{- else }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if not .image }}
+            - name: content
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            {{- end }}
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- if not .image }}
+        - name: content
+          configMap:
+            name: {{ .name }}-content
+        {{- end }}
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: public-sites
+  labels:
+    app.kubernetes.io/name: public-site
+    app.kubernetes.io/instance: {{ .name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: public-site
+    app.kubernetes.io/instance: {{ .name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+{{- if .publicIngress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .name }}-public
+  namespace: public-sites
+  annotations:
+    kubernetes.io/ingress.class: traefik-public
+  labels:
+    app.kubernetes.io/name: public-site
+    app.kubernetes.io/instance: {{ .name }}
+spec:
+  rules:
+    - host: {{ .domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .name }}
+                port:
+                  name: http
+{{- end }}
+{{- end }}

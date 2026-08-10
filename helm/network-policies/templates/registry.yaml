@@ -1,0 +1,61 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "registry") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: registry-enforced
+  namespace: registry
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app: registry
+  ingress:
+    # Development workspaces may push and pull private images.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: devenv
+            app: code-server
+        - matchLabels:
+            io.kubernetes.pod.namespace: devpod
+      toPorts:
+        - ports:
+            - port: "5000"
+              protocol: TCP
+    # TLS requests proxied by Traefik.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik
+            app.kubernetes.io/name: traefik
+      toPorts:
+        - ports:
+            - port: "5000"
+              protocol: TCP
+    # Kubelet probes and traffic forwarded through the MetalLB address. Direct
+    # LAN clients are SNATed by the receiving node and may appear as world.
+    - fromEntities:
+        - host
+        - remote-node
+        - world
+      toPorts:
+        - ports:
+            - port: "5000"
+              protocol: TCP
+  egress:
+    # The registry is filesystem-backed and has no external dependency. Keep
+    # DNS available for diagnostics and future authenticated backends.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+{{- end }}
+{{- end }}
