@@ -207,7 +207,7 @@ Default storage class. All PVCs use `storageClassName: longhorn`. Replica count 
 
 ### Dev Environment Architecture
 
-Three code-server instances in the `devenv` namespace share a 50Gi PVC (`devenv-shared`) mounted at `/mnt/shared`. Each has its own workspace PVC. The homelab instance (`homelab.elate.me`) has full cluster admin RBAC and auto-installs kubectl, helm, git, Codex, and Open Code on startup.
+Three code-server instances in the `devenv` namespace share a 50Gi PVC (`devenv-shared`) mounted at `/mnt/shared`. Each has its own workspace PVC. The homelab instance (`homelab.elate.me`) has full cluster admin RBAC and uses the pinned management image built from `images/code-server-homelab/Dockerfile`; tools must not be installed from a lifecycle hook.
 
 ### Docker Registry
 

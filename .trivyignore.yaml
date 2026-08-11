@@ -31,14 +31,6 @@ misconfigurations:
       This dedicated management Code Server intentionally has cluster-admin
       capabilities. Replace it with a narrower operator workflow if practical.
     expired_at: 2027-08-10
-  - id: KSV-0118
-    paths:
-      - "homelab-code-server/templates/code-server-homelab.yaml"
-    statement: >-
-      The management container runs as UID 1000 but its current postStart
-      bootstrap uses sudo to install tools. Replace the runtime bootstrap with
-      a prebuilt image before enforcing allowPrivilegeEscalation=false.
-    expired_at: 2027-02-10
   - id: KSV-0014
     paths:
       - "homelab-code-server/templates/code-server-homelab.yaml"

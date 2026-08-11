@@ -36,8 +36,14 @@ spec:
           effect: NoSchedule
       containers:
         - name: code-server
-          image: ghcr.io/coder/code-server:latest@sha256:3623e6362abdec6258472882b06fdeec9d6ce2ad3fda316b3c5d7ed092b89add
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.homelabImage.repository }}:{{ .Values.homelabImage.tag }}"
+          imagePullPolicy: {{ .Values.homelabImage.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
           args:
             - --auth
             - none

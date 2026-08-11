@@ -108,7 +108,7 @@ review; the controller cannot mutate application Services or Ingress rules.
 
 The homelab Code Server is an explicitly privileged management environment. Its
 cluster-admin RBAC exceptions document existing intent rather than declaring
-the design generally safe. Its shorter-lived security-context exception tracks
-the need to replace runtime `sudo` installation with a prebuilt management
-image. It must never be routed through the public Traefik controller or
-Cloudflare Tunnel.
+the design generally safe. Its management image is built from the repository's
+Dockerfile with pinned tool versions and checksum-verified upstream binaries;
+the image must be pinned by registry digest before deployment. It must never be
+routed through the public Traefik controller or Cloudflare Tunnel.

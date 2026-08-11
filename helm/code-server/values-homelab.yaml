@@ -4,9 +4,11 @@
 # Accessible at https://homelab.elate.me
 # Deploy with: helm install code-server-homelab pascaliske/code-server -n devenv -f helm/code-server/values-homelab.yaml
 
-image:
-  repository: ghcr.io/coder/code-server
-  tag: "latest@sha256:3623e6362abdec6258472882b06fdeec9d6ce2ad3fda316b3c5d7ed092b89add"
+homelabImage:
+  # Built from images/code-server-homelab/Dockerfile and pinned to the digest
+  # returned by the LAN registry after the verified build.
+  repository: 192.168.1.53:5000/code-server-homelab
+  tag: "20260810@sha256:b4ecd2cc39eac747877a094ac915d2f9aa519829e74d07712093260b93158efe"
   pullPolicy: IfNotPresent
 
 # Code-server authentication
@@ -92,56 +94,3 @@ nodeSelector: {}
 
 # Affinity
 affinity: {}
-
-# Lifecycle hooks to install tools and clone homelab repo
-lifecycle:
-  postStart:
-    exec:
-      command:
-        - /bin/bash
-        - -c
-        - |
-          # Install git if not present
-          if ! command -v git &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y git
-          fi
-
-          # Clone homelab repo if workspace is empty (first run)
-          REPO_DIR="/home/coder/homelab"
-          REPO_URL="https://github.com/danielcluff/homelab.git"
-          if [ ! -d "$REPO_DIR/.git" ]; then
-            echo "Cloning homelab repository..."
-            git clone "$REPO_URL" "$REPO_DIR.tmp"
-            mv "$REPO_DIR.tmp"/* "$REPO_DIR.tmp"/.[!.]* "$REPO_DIR"/ 2>/dev/null || true
-            rm -rf "$REPO_DIR.tmp"
-          fi
-
-          # Install Node.js if not present
-          if ! command -v node &> /dev/null; then
-            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-          fi
-
-          # Install Claude Code and Open Code
-          sudo npm install -g @anthropic-ai/claude-code opencode-ai || true
-          echo "Claude Code and Open Code installation complete"
-
-          # Install kubectl if not present
-          if ! command -v kubectl &> /dev/null; then
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-            rm kubectl
-          fi
-
-          # Install helm if not present
-          if ! command -v helm &> /dev/null; then
-            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          fi
-
-          # Setup kubeconfig
-          mkdir -p ~/.kube
-          if [ -f /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
-            echo "Kubernetes service account detected - kubectl will use in-cluster auth"
-          fi
-
-          echo "HomeLab management tools installation complete"

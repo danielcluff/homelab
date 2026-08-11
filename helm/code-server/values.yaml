@@ -1,0 +1,4 @@
+homelabImage:
+  repository: 192.168.1.53:5000/code-server-homelab
+  tag: "20260810@sha256:b4ecd2cc39eac747877a094ac915d2f9aa519829e74d07712093260b93158efe"
+  pullPolicy: IfNotPresent

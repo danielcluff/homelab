@@ -68,4 +68,8 @@ mkdir -p "${render_dir}/helm/public-sites/elate-me"
 cp "${repo_dir}/helm/public-sites/elate-me/Dockerfile" \
   "${render_dir}/helm/public-sites/elate-me/Dockerfile"
 
+mkdir -p "${render_dir}/images/code-server-homelab"
+cp "${repo_dir}/images/code-server-homelab/Dockerfile" \
+  "${render_dir}/images/code-server-homelab/Dockerfile"
+
 echo "Rendered scan inputs to ${render_dir}"

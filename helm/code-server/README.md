@@ -2,6 +2,19 @@
 
 This directory contains Helm values configurations for deploying VS Code dev environments in Kubernetes using [code-server](https://github.com/coder/code-server).
 
+The homelab management instance uses a repository-owned image built from
+`images/code-server-homelab/Dockerfile`. It contains pinned, checksum-verified
+Node.js, kubectl, Helm, Codex, Claude Code, and OpenCode installations. Do not
+restore package installation in a lifecycle hook: it makes pod startup depend
+on the internet and previously exhausted the pod's memory limit.
+
+Build and push the image to the LAN registry, then replace the placeholder
+digest in `values-homelab.yaml` with the digest printed by the build:
+
+```bash
+./scripts/build-code-server-homelab.sh 20260810
+```
+
 ## Overview
 
 - **IDE**: code-server (VS Code in browser)
