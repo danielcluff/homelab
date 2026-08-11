@@ -3,6 +3,8 @@
 This chart installs a second Traefik controller for public applications. It is
 separate from the LAN-facing `traefik` release and has these boundaries:
 
+- upstream chart 41.2.0 runs Traefik 3.7.10 from an immutable image digest;
+
 - `ClusterIP` only; it receives no MetalLB address and opens no node port.
 - only `Ingress` objects with the `kubernetes.io/ingress.class:
   traefik-public` annotation are handled; hardened cluster-scope discovery is
@@ -27,6 +29,7 @@ separate from the LAN-facing `traefik` release and has these boundaries:
 helm dependency update helm/traefik-public
 helm upgrade --install traefik-public helm/traefik-public \
   --namespace traefik-public --create-namespace --skip-crds
+kubectl rollout status deployment/traefik-public -n traefik-public --timeout=5m
 ```
 
 `--skip-crds` is required because the internal Traefik release already owns the
@@ -35,6 +38,15 @@ Kubernetes `Ingress` resources and does not need those CRDs.
 
 Installing this release does not itself change any Cloudflare route. The
 current `elate.me` and `elate.biz` routes both target this controller.
+
+After an upgrade, verify both routes externally and confirm that Cilium did not
+deny expected `cloudflared` to Traefik or Traefik to backend flows. Roll back to
+the prior Helm revision if either route fails:
+
+```bash
+helm history traefik-public -n traefik-public
+helm rollback traefik-public <previous-revision> -n traefik-public --wait
+```
 
 ## Adding a public application
 

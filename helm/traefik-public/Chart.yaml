@@ -2,9 +2,9 @@ apiVersion: v2
 name: homelab-traefik-public
 description: Isolated ingress controller for Cloudflare Tunnel public applications
 type: application
-version: 0.1.0
-appVersion: "3.6.6"
+version: 0.2.0
+appVersion: "3.7.10"
 dependencies:
   - name: traefik
-    version: 38.0.2
+    version: 41.2.0
     repository: https://traefik.github.io/charts
