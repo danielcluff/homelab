@@ -18,8 +18,10 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # DevPod connects the IDE and forwards workspace ports through these pod
+  # subresources. This capability is intentionally namespace-scoped.
   - apiGroups: [""]
-    resources: ["pods/exec", "pods/portforward", "pods/attach"]
+    resources: ["pods/exec", "pods/portforward"]
     verbs: ["create"]
   - apiGroups: [""]
     resources: ["pods/log"]
@@ -35,15 +37,11 @@ rules:
     resources: ["secrets", "configmaps"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   
-  # Services
+  # Service discovery only. Port forwarding uses pods/portforward and does not
+  # require creating or modifying Services.
   - apiGroups: [""]
     resources: ["services"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  
-  # Deployments (optional, for more complex setups)
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

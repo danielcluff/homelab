@@ -60,3 +60,8 @@ Both scans use `exit-code: "1"`. A high/critical Kubernetes or repository
 misconfiguration, or a high/critical potential secret in committed files, now
 fails the workflow. Do not suppress a finding merely to make CI pass: fix it or
 document why a narrowly scoped ignore is safe before adding that exception.
+
+Accepted findings live in `.trivyignore.yaml`. Every exception must be scoped
+to an exact path, explain the required capability and its containment, and have
+an expiration date. The DevPod `pods/exec` exception is required for IDE access
+to workspace containers and is confined to the dedicated `devpod` namespace.

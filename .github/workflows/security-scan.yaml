@@ -39,6 +39,7 @@ jobs:
           hide-progress: true
           exit-code: "1"
           skip-dirs: helm/sealed-secrets
+          trivyignores: .trivyignore.yaml
 
       - name: Scan committed files for secrets
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25

@@ -1,0 +1,9 @@
+misconfigurations:
+  - id: KSV-0053
+    paths:
+      - "manifests/devpod-rbac.yaml"
+    statement: >-
+      DevPod requires create on pods/exec to connect the local IDE to workspace
+      containers. The Role is restricted to the dedicated devpod namespace and
+      is not used by public or internal application workloads.
+    expired_at: 2027-08-10
