@@ -24,8 +24,15 @@ render_chart() {
   local release="$1"
   local chart="$2"
   local namespace="$3"
+  local chart_dir="${repo_dir}/${chart}"
 
-  helm template "${release}" "${repo_dir}/${chart}" \
+  # Dependency archives are intentionally gitignored. Rebuild them from the
+  # committed lock file so this script also works from a clean CI checkout.
+  if [[ -f "${chart_dir}/Chart.lock" ]]; then
+    helm dependency build "${chart_dir}" >/dev/null
+  fi
+
+  helm template "${release}" "${chart_dir}" \
     --namespace "${namespace}" \
     --include-crds \
     --output-dir "${render_dir}" >/dev/null
