@@ -1096,6 +1096,7 @@ homelab/
  ├── CLAUDE.md                          # Claude Code guidance
  ├── MONITORING_SETUP.md                # Monitoring setup guide
  ├── DISASTER_RECOVERY.md               # Backup architecture and restore testing
+ ├── SUPPLY_CHAIN.md                    # Dependency update and CI trust policy
  ├── QUICK_START_MONITORING.md          # Quick monitoring reference
  ├── generate-talos-config.sh           # Script to generate node configurations
  ├── helm/                              # Helm charts and upstream values
@@ -1153,6 +1154,7 @@ homelab/
 -   **Local recovery**: Longhorn takes daily local snapshots and retains seven per volume; see [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)
 -   **TODO — off-site backups**: Configure a remote Longhorn backup target and schedule Talos `etcd` snapshots to encrypted off-cluster storage. This is intentionally deferred and local snapshots do not protect against loss of the cluster or its storage nodes.
 -   **Updates**: Keep Kubernetes, Talos, and applications updated
+-   **Update discovery**: Review-only Renovate configuration is available; see [SUPPLY_CHAIN.md](SUPPLY_CHAIN.md)
 -   **Monitoring**: Complete monitoring stack deployed - see [Monitoring Stack](#monitoring-stack) section
 
 ---

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests"
+  ],
+  "dependencyDashboard": true,
+  "labels": [
+    "dependencies"
+  ],
+  "schedule": [
+    "before 6:00am on Monday"
+  ],
+  "timezone": "America/Denver",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "automerge": false,
+  "rangeStrategy": "pin",
+  "enabledManagers": [
+    "dockerfile",
+    "github-actions",
+    "helmv3",
+    "helm-values",
+    "kubernetes",
+    "npm",
+    "custom.regex"
+  ],
+  "helm-values": {
+    "managerFilePatterns": [
+      "/(^|/)values(?:-[^/]+)?\\.ya?ml$/"
+    ]
+  },
+  "kubernetes": {
+    "managerFilePatterns": [
+      "/(^|/)(?:helm|manifests|talos-patches)/.+\\.ya?ml$/"
+    ]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^helm/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "image:\\s*[\\\"']?(?<depName>[^\\s\\\"'@:]+(?:/[^\\s\\\"'@:]+)*):(?<currentValue>[^@\\s\\\"']+)@(?<currentDigest>sha256:[a-f0-9]{64})[\\\"']?"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Never automatically merge infrastructure updates",
+      "matchManagers": [
+        "dockerfile",
+        "helmv3",
+        "helm-values",
+        "kubernetes",
+        "custom.regex"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Group non-major GitHub Actions updates",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Keep Talos and Kubernetes upgrades deliberate",
+      "matchPackageNames": [
+        "/talos/",
+        "/kubernetes/",
+        "/kube-apiserver/",
+        "/kube-controller-manager/",
+        "/kube-scheduler/"
+      ],
+      "enabled": false
+    }
+  ]
+}
