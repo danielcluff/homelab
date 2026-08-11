@@ -29,6 +29,11 @@ render_chart() {
   # Dependency archives are intentionally gitignored. Rebuild them from the
   # committed lock file so this script also works from a clean CI checkout.
   if [[ -f "${chart_dir}/Chart.lock" ]]; then
+    if [[ "${chart}" == "helm/traefik-public" ]] && \
+       ! compgen -G "${chart_dir}/charts/traefik-*.tgz" >/dev/null; then
+      helm repo add traefik https://traefik.github.io/charts \
+        --force-update >/dev/null
+    fi
     helm dependency build "${chart_dir}" >/dev/null
   fi
 
