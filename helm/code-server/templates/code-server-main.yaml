@@ -142,6 +142,6 @@ spec:
                 port:
                   number: 8080
   tls:
-    - secretName: elate.me-tls
+    - secretName: dev-elate-me-tls
       hosts:
         - dev.elate.me

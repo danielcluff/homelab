@@ -2,5 +2,5 @@ apiVersion: v2
 name: homelab-code-server
 description: Homelab code-server environments
 type: application
-version: 1.0.1
+version: 1.0.2
 appVersion: latest

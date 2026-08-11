@@ -37,12 +37,9 @@ Longhorn Storage
    helm upgrade --install code-server . -n devenv
    ```
 
-3. TLS certificate copied to devenv namespace:
-   ```bash
-   kubectl get secret home.com-tls -n heimdall -o yaml | \
-     sed 's/namespace: heimdall/namespace: devenv/' | \
-     kubectl apply -f -
-   ```
+3. Each Ingress uses a hostname-specific TLS Secret. Its cert-manager
+   annotation creates and renews the corresponding Certificate automatically.
+   Never reuse one Secret name for Ingresses with different host lists.
 
 ## Deployment
 

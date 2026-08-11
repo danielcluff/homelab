@@ -39,7 +39,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: elate.me-tls
+    - secretName: dev-elate-me-tls
       hosts:
         - dev.elate.me
 

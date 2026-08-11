@@ -49,6 +49,16 @@ spec:
               protocol: UDP
             - port: "53"
               protocol: TCP
+    # DNS-01 propagation checks query the zone's authoritative nameservers
+    # directly after discovering them through CoreDNS.
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
     # Kubernetes service traffic is translated to the control-plane host on
     # TCP/6443 before endpoint policy evaluation.
     - toEntities:

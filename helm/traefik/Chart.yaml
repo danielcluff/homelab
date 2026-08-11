@@ -2,7 +2,7 @@ apiVersion: v2
 name: homelab-traefik
 description: Internal homelab ingress controller
 type: application
-version: 1.0.0
+version: 1.0.1
 appVersion: "3.7.10"
 dependencies:
   - name: traefik

@@ -19,7 +19,7 @@ traefik:
       entryPoints:
         - websecure
       tls:
-        secretName: elate.me-tls
+        secretName: traefik-elate-me-tls
 
   gateway:
     enabled: false
@@ -61,4 +61,4 @@ traefik:
   tlsStore:
     default:
       defaultCertificate:
-        secretName: elate.me-tls
+        secretName: traefik-elate-me-tls

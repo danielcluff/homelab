@@ -52,56 +52,6 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - /bin/bash
-                  - -c
-                  - |
-                    # Install git if not present
-                    if ! command -v git &> /dev/null; then
-                      sudo apt-get update && sudo apt-get install -y git
-                    fi
-
-                    # Clone homelab repo if workspace is empty (first run)
-                    REPO_DIR="/home/coder/homelab"
-                    REPO_URL="https://github.com/danielcluff/homelab.git"
-                    if [ ! -d "$REPO_DIR/.git" ]; then
-                      echo "Cloning homelab repository..."
-                      git clone "$REPO_URL" "$REPO_DIR.tmp"
-                      mv "$REPO_DIR.tmp"/* "$REPO_DIR.tmp"/.[!.]* "$REPO_DIR"/ 2>/dev/null || true
-                      rm -rf "$REPO_DIR.tmp"
-                    fi
-
-                    # Install Node.js if not present
-                    if ! command -v node &> /dev/null; then
-                      curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-                      sudo apt-get install -y nodejs
-                    fi
-                    # Install Claude Code and Open Code
-                    sudo npm install -g @anthropic-ai/claude-code opencode-ai || true
-                    echo "Claude Code and Open Code installation complete"
-
-                    # Install kubectl if not present
-                    if ! command -v kubectl &> /dev/null; then
-                      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                      sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                      rm kubectl
-                    fi
-
-                    # Install helm if not present
-                    if ! command -v helm &> /dev/null; then
-                      curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-                    fi
-
-                    # Setup kubeconfig
-                    mkdir -p ~/.kube
-                    if [ -f /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
-                      echo "Kubernetes service account detected - kubectl will use in-cluster auth"
-                    fi
-
-                    echo "HomeLab management tools installation complete"
           resources:
             limits:
               cpu: 2000m
@@ -184,6 +134,6 @@ spec:
                 port:
                   number: 8080
   tls:
-    - secretName: elate.me-tls
+    - secretName: homelab-elate-me-tls
       hosts:
         - homelab.elate.me
