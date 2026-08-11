@@ -20,7 +20,7 @@ jobs:
   repository:
     name: Repository and Kubernetes configuration
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -42,6 +42,42 @@ jobs:
           hide-progress: true
           exit-code: "1"
           trivyignores: .trivyignore.yaml
+
+      - name: Scan public workload images
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t images < <(./scripts/list-workload-images.rb .trivy-rendered)
+          scanned=0
+          skipped=0
+
+          for image in "${images[@]}"; do
+            if [[ "${image}" == 192.168.1.53:5000/* ]]; then
+              echo "Skipping LAN-only image from GitHub runner: ${image}"
+              skipped=$((skipped + 1))
+              continue
+            fi
+
+            echo "::group::Trivy image scan: ${image}"
+            trivy image \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 0 \
+              --no-progress \
+              "${image}"
+            echo "::endgroup::"
+            scanned=$((scanned + 1))
+          done
+
+          {
+            echo "### Container image vulnerability baseline"
+            echo
+            echo "- Public images scanned: ${scanned}"
+            echo "- LAN-only images not reachable from GitHub: ${skipped}"
+            echo "- Vulnerabilities are report-only during baseline triage."
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Scan committed files for secrets
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25

@@ -1156,6 +1156,7 @@ homelab/
 -   **Updates**: Keep Kubernetes, Talos, and applications updated
 -   **Update discovery**: Review-only Renovate configuration is available; see [SUPPLY_CHAIN.md](SUPPLY_CHAIN.md)
 -   **Security scanning**: GitHub Actions blocks changes containing high/critical configuration findings or potential committed secrets
+-   **Image scanning**: Public workload images receive report-only high/critical vulnerability scans; the LAN-only application image remains a documented coverage gap
 -   **Monitoring**: Complete monitoring stack deployed - see [Monitoring Stack](#monitoring-stack) section
 
 ---

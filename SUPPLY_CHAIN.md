@@ -73,6 +73,20 @@ to an exact path, explain the required capability and its containment, and have
 an expiration date. The DevPod `pods/exec` exception is required for IDE access
 to workspace containers and is confined to the dedicated `devpod` namespace.
 
+## Container image scanning
+
+`scripts/list-workload-images.rb` extracts images from containers, init
+containers, and ephemeral containers in the rendered Kubernetes resources.
+The workflow scans each registry-accessible image for fixed high/critical
+operating-system and library vulnerabilities. Public-image findings initially
+remain report-only while the baseline is triaged; registry lookup or scanner
+errors still fail the job.
+
+The `192.168.1.53:5000/elate-me` image is intentionally reported as skipped
+because a GitHub-hosted runner cannot reach the LAN-only registry. This is a
+visible coverage gap, not an ignore. That image must eventually be scanned in
+its image-build workflow or by a trusted self-hosted runner before deployment.
+
 The homelab Code Server is an explicitly privileged management environment. Its
 cluster-admin RBAC exceptions document existing intent rather than declaring
 the design generally safe. Its shorter-lived security-context exception tracks
