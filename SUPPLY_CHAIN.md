@@ -87,6 +87,13 @@ because a GitHub-hosted runner cannot reach the LAN-only registry. This is a
 visible coverage gap, not an ignore. That image must eventually be scanned in
 its image-build workflow or by a trusted self-hosted runner before deployment.
 
+The local registry server is pinned to the current stable official Registry
+3.1.1 image. On 2026-08-10, the workflow-equivalent Trivy 0.69.3 scan reported
+no Alpine findings and no critical findings, but 23 fixed high-severity
+findings in its compiled Go dependencies. There is no newer stable upstream
+release to adopt yet. These findings remain visible in the report-only image
+baseline and should be reevaluated when upstream publishes a newer release.
+
 The homelab Code Server is an explicitly privileged management environment. Its
 cluster-admin RBAC exceptions document existing intent rather than declaring
 the design generally safe. Its shorter-lived security-context exception tracks

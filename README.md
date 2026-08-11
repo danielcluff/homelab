@@ -324,11 +324,37 @@ of each public component during voluntary maintenance.
 
 **Features**:
 
--   Docker Registry v2
+-   CNCF Distribution Registry 3.1.1, pinned by multi-architecture digest
 -   Image deletion enabled
 -   CORS configured for web access
 -   Stores locally built workload images, including the custom `elate-me` site image
 -   Prefer the private MetalLB endpoint from LAN build clients; use `registry.elate.me` only where local DNS resolves it to the internal ingress
+
+**Registry 3 upgrade procedure**:
+
+The Registry 3 deployment continues to use the existing filesystem data at
+`/var/lib/registry`. Before upgrading, record the catalog and confirm that a
+known image can be pulled:
+
+```bash
+curl -fsS http://192.168.1.53:5000/v2/_catalog
+docker pull 192.168.1.53:5000/elate-me:hosting-20260806b
+helm upgrade --install registry ./helm/registry -n registry --create-namespace
+kubectl rollout status deployment/registry -n registry --timeout=5m
+curl -fsS http://192.168.1.53:5000/v2/_catalog
+docker pull 192.168.1.53:5000/elate-me:hosting-20260806b
+```
+
+The deployment uses the `Recreate` strategy because its Longhorn volume is
+`ReadWriteOnce`, so expect a short registry outage during the rollout. If the
+post-upgrade catalog or pull check fails, restore the previous image while
+leaving the retained PVC untouched:
+
+```bash
+kubectl set image deployment/registry -n registry \
+  registry=registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
+kubectl rollout status deployment/registry -n registry --timeout=5m
+```
 
 ---
 
