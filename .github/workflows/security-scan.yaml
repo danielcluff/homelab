@@ -37,7 +37,7 @@ jobs:
           severity: HIGH,CRITICAL
           format: table
           hide-progress: true
-          exit-code: "0"
+          exit-code: "1"
           skip-dirs: helm/sealed-secrets
 
       - name: Scan committed files for secrets
@@ -50,6 +50,6 @@ jobs:
           severity: HIGH,CRITICAL
           format: table
           hide-progress: true
-          exit-code: "0"
+          exit-code: "1"
           skip-dirs: helm/sealed-secrets
           skip-setup-trivy: true

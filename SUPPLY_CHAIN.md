@@ -56,8 +56,7 @@ use the Node.js 24 runtime. The vendored Sealed Secrets chart is skipped because
 it is upstream code rather than a locally maintained workload; the committed
 encrypted SealedSecret resources remain in scope.
 
-Both scans initially use `exit-code: "0"`, so findings are visible without
-blocking pull requests. After the first GitHub run is reviewed, record or fix
-the baseline findings and change the secret scan to `exit-code: "1"`. Promote
-the configuration scan separately once its existing high/critical findings
-have been triaged.
+Both scans use `exit-code: "1"`. A high/critical Kubernetes or repository
+misconfiguration, or a high/critical potential secret in committed files, now
+fails the workflow. Do not suppress a finding merely to make CI pass: fix it or
+document why a narrowly scoped ignore is safe before adding that exception.
