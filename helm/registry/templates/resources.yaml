@@ -35,6 +35,9 @@ spec:
       labels:
         app: registry
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
@@ -42,6 +45,12 @@ spec:
       containers:
         - name: registry
           image: registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 5000
               name: http
@@ -57,6 +66,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/registry
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 100m
@@ -80,6 +91,8 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: registry-data
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

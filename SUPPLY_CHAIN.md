@@ -65,3 +65,10 @@ Accepted findings live in `.trivyignore.yaml`. Every exception must be scoped
 to an exact path, explain the required capability and its containment, and have
 an expiration date. The DevPod `pods/exec` exception is required for IDE access
 to workspace containers and is confined to the dedicated `devpod` namespace.
+
+The homelab Code Server is an explicitly privileged management environment. Its
+cluster-admin RBAC exceptions document existing intent rather than declaring
+the design generally safe. Its shorter-lived security-context exception tracks
+the need to replace runtime `sudo` installation with a prebuilt management
+image. It must never be routed through the public Traefik controller or
+Cloudflare Tunnel.

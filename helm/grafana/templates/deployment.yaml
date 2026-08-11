@@ -78,6 +78,15 @@
               "timeoutSeconds": 5
             },
             "name": "grafana",
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true
+            },
             "ports": [
               {
                 "containerPort": 3000,
@@ -117,6 +126,10 @@
               {
                 "mountPath": "/etc/grafana/provisioning/datasources",
                 "name": "datasources"
+              },
+              {
+                "mountPath": "/tmp",
+                "name": "tmp"
               }
             ]
           }
@@ -145,6 +158,10 @@
               "name": "grafana-datasources"
             },
             "name": "datasources"
+          },
+          {
+            "emptyDir": {},
+            "name": "tmp"
           }
         ]
       }
