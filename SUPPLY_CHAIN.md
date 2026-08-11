@@ -49,11 +49,12 @@ The `Security scan` GitHub Actions workflow runs on pull requests, pushes to
 repository configuration for high/critical misconfigurations and scans
 committed files for secrets.
 
-The workflow uses the immutable, remediated Trivy Action 0.35.0 commit and the
-known-safe Trivy 0.69.3 binary identified in GHSA-69fq-xp46-6x23. All Actions
-are referenced by full commit SHA. The vendored Sealed Secrets chart is skipped
-because it is upstream code rather than a locally maintained workload; the
-committed encrypted SealedSecret resources remain in scope.
+The workflow uses the remediated Trivy Action 0.36.0 commit and the known-safe
+Trivy 0.69.3 binary identified in GHSA-69fq-xp46-6x23. Checkout, Trivy, and
+Trivy's transitive setup/cache Actions are referenced by full commit SHA and
+use the Node.js 24 runtime. The vendored Sealed Secrets chart is skipped because
+it is upstream code rather than a locally maintained workload; the committed
+encrypted SealedSecret resources remain in scope.
 
 Both scans initially use `exit-code: "0"`, so findings are visible without
 blocking pull requests. After the first GitHub run is reviewed, record or fix
