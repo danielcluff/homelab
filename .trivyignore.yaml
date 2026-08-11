@@ -1,7 +1,7 @@
 misconfigurations:
   - id: KSV-0044
     paths:
-      - "helm/code-server/templates/code-server-homelab-rbac.yaml"
+      - "homelab-code-server/templates/code-server-homelab-rbac.yaml"
     statement: >-
       This dedicated management Code Server intentionally has cluster-admin
       capabilities. It is reachable only through the internal Traefik path and
@@ -9,14 +9,14 @@ misconfigurations:
     expired_at: 2027-08-10
   - id: KSV-0046
     paths:
-      - "helm/code-server/templates/code-server-homelab-rbac.yaml"
+      - "homelab-code-server/templates/code-server-homelab-rbac.yaml"
     statement: >-
       This dedicated management Code Server intentionally has cluster-admin
       capabilities. Replace it with a narrower operator workflow if practical.
     expired_at: 2027-08-10
   - id: KSV-0118
     paths:
-      - "helm/code-server/templates/code-server-homelab.yaml"
+      - "homelab-code-server/templates/code-server-homelab.yaml"
     statement: >-
       The management container runs as UID 1000 but its current postStart
       bootstrap uses sudo to install tools. Replace the runtime bootstrap with
@@ -24,8 +24,8 @@ misconfigurations:
     expired_at: 2027-02-10
   - id: KSV-0014
     paths:
-      - "helm/code-server/templates/code-server-homelab.yaml"
-      - "helm/code-server/templates/code-server-main.yaml"
+      - "homelab-code-server/templates/code-server-homelab.yaml"
+      - "homelab-code-server/templates/code-server-main.yaml"
     statement: >-
       These are interactive development environments that install tools and
       extensions and therefore require a writable container filesystem. Their
@@ -33,66 +33,66 @@ misconfigurations:
     expired_at: 2027-02-10
   - id: KSV-0009
     paths:
-      - "helm/tailscale/templates/resources.yaml"
+      - "homelab-tailscale/templates/resources.yaml"
     statement: Kernel-mode subnet routing intentionally uses the host network.
     expired_at: 2027-08-10
   - id: KSV-0014
     paths:
-      - "helm/tailscale/templates/resources.yaml"
+      - "homelab-tailscale/templates/resources.yaml"
     statement: Tailscale kernel-mode networking requires writable runtime paths.
     expired_at: 2027-08-10
   - id: KSV-0017
     paths:
-      - "helm/tailscale/templates/resources.yaml"
+      - "homelab-tailscale/templates/resources.yaml"
     statement: >-
       The subnet router uses kernel networking and /dev/net/tun; the official
       Tailscale Kubernetes guidance documents privileged mode for this design.
     expired_at: 2027-08-10
   - id: KSV-0118
     paths:
-      - "helm/tailscale/templates/resources.yaml"
+      - "homelab-tailscale/templates/resources.yaml"
     statement: Tailscale kernel-mode subnet routing runs with elevated privileges.
     expired_at: 2027-08-10
   - id: KSV-0119
     paths:
-      - "helm/tailscale/templates/resources.yaml"
+      - "homelab-tailscale/templates/resources.yaml"
     statement: NET_RAW is part of the existing privileged kernel router configuration.
     expired_at: 2027-02-10
   - id: KSV-0120
     paths:
-      - "helm/tailscale/templates/resources.yaml"
+      - "homelab-tailscale/templates/resources.yaml"
     statement: >-
       SYS_MODULE is part of the existing kernel router configuration and must
       be retested for removal on Talos before this exception expires.
     expired_at: 2027-02-10
   - id: KSV-0009
     paths:
-      - "helm/openvpn/templates/resources.yaml"
+      - "homelab-openvpn/templates/resources.yaml"
     statement: The disabled TAP VPN requires host networking when deliberately enabled.
     expired_at: 2027-02-10
   - id: KSV-0014
     paths:
-      - "helm/openvpn/templates/resources.yaml"
+      - "homelab-openvpn/templates/resources.yaml"
     statement: The legacy TAP VPN is disabled and retained only for occasional OS 9 use.
     expired_at: 2027-02-10
   - id: KSV-0017
     paths:
-      - "helm/openvpn/templates/resources.yaml"
+      - "homelab-openvpn/templates/resources.yaml"
     statement: The disabled TAP VPN requires privileged bridge and tunnel management.
     expired_at: 2027-02-10
   - id: KSV-0118
     paths:
-      - "helm/openvpn/templates/resources.yaml"
+      - "homelab-openvpn/templates/resources.yaml"
     statement: The privileged TAP VPN is disabled by default.
     expired_at: 2027-02-10
   - id: KSV-0119
     paths:
-      - "helm/openvpn/templates/resources.yaml"
+      - "homelab-openvpn/templates/resources.yaml"
     statement: The disabled TAP VPN requires raw network operations when enabled.
     expired_at: 2027-02-10
   - id: KSV-0120
     paths:
-      - "helm/openvpn/templates/resources.yaml"
+      - "homelab-openvpn/templates/resources.yaml"
     statement: >-
       The legacy TAP image currently requests SYS_MODULE; remove or retire the
       chart before enabling it again.

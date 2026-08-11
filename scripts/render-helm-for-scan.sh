@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+render_dir="${1:-${repo_dir}/.trivy-rendered}"
+
+case "${render_dir}" in
+  "${repo_dir}/.trivy-rendered"|.trivy-rendered)
+    ;;
+  *)
+    echo "destination must be ${repo_dir}/.trivy-rendered" >&2
+    exit 1
+    ;;
+esac
+
+if [[ "${render_dir}" == ".trivy-rendered" ]]; then
+  render_dir="${repo_dir}/.trivy-rendered"
+fi
+
+rm -rf -- "${render_dir}"
+mkdir -p "${render_dir}"
+
+render_chart() {
+  local release="$1"
+  local chart="$2"
+  local namespace="$3"
+
+  helm template "${release}" "${repo_dir}/${chart}" \
+    --namespace "${namespace}" \
+    --include-crds \
+    --output-dir "${render_dir}" >/dev/null
+}
+
+render_chart cloudflared helm/cloudflared cloudflare-tunnel
+render_chart code-server helm/code-server devenv
+render_chart grafana helm/grafana monitoring
+render_chart longhorn-protection helm/longhorn-protection longhorn-system
+render_chart monitoring-baseline helm/monitoring-baseline monitoring
+render_chart network-policies helm/network-policies kube-system
+render_chart openvpn helm/openvpn openvpn
+render_chart public-sites helm/public-sites public-sites
+render_chart registry helm/registry registry
+render_chart tailscale helm/tailscale tailscale
+render_chart traefik-public helm/traefik-public traefik-public
+render_chart uptime-kuma helm/uptime-kuma uptime-kuma
+
+# Preserve repository-relative paths for standalone resources and scoped
+# Trivy exceptions. Plaintext secrets are gitignored and are never copied.
+mkdir -p "${render_dir}/manifests" "${render_dir}/sealedsecrets"
+cp -R "${repo_dir}/manifests/." "${render_dir}/manifests/"
+cp -R "${repo_dir}/sealedsecrets/." "${render_dir}/sealedsecrets/"
+
+mkdir -p "${render_dir}/helm/public-sites/elate-me"
+cp "${repo_dir}/helm/public-sites/elate-me/Dockerfile" \
+  "${render_dir}/helm/public-sites/elate-me/Dockerfile"
+
+echo "Rendered scan inputs to ${render_dir}"

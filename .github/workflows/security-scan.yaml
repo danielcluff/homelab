@@ -27,18 +27,20 @@ jobs:
         # v6.0.2 (Node.js 24); full SHA prevents a mutable tag changing executed code.
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
+      - name: Render Helm charts for scanning
+        run: ./scripts/render-helm-for-scan.sh
+
       - name: Scan Kubernetes and repository configuration
         # v0.36.0 uses SHA-pinned, Node.js 24-compatible setup and cache actions.
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           scan-type: config
-          scan-ref: .
+          scan-ref: .trivy-rendered
           version: v0.69.3
           severity: HIGH,CRITICAL
           format: table
           hide-progress: true
           exit-code: "1"
-          skip-dirs: helm/sealed-secrets
           trivyignores: .trivyignore.yaml
 
       - name: Scan committed files for secrets
@@ -52,5 +54,5 @@ jobs:
           format: table
           hide-progress: true
           exit-code: "1"
-          skip-dirs: helm/sealed-secrets
+          skip-dirs: helm/sealed-secrets,.trivy-rendered
           skip-setup-trivy: true

@@ -49,6 +49,13 @@ The `Security scan` GitHub Actions workflow runs on pull requests, pushes to
 repository configuration for high/critical misconfigurations and scans
 committed files for secrets.
 
+Before the configuration scan, `scripts/render-helm-for-scan.sh` renders every
+locally maintained Helm chart into `.trivy-rendered/`. Trivy therefore evaluates
+the Kubernetes resources Helm will submit instead of attempting to parse raw Go
+templates. Standalone manifests, encrypted SealedSecrets, and the public-site
+Dockerfile are copied into the same temporary scan tree. The vendored upstream
+Sealed Secrets chart is intentionally not rendered or scanned.
+
 The workflow uses the remediated Trivy Action 0.36.0 commit and the known-safe
 Trivy 0.69.3 binary identified in GHSA-69fq-xp46-6x23. Checkout, Trivy, and
 Trivy's transitive setup/cache Actions are referenced by full commit SHA and
