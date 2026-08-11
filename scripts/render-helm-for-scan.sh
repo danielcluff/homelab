@@ -29,12 +29,13 @@ render_chart() {
   # Dependency archives are intentionally gitignored. Rebuild them from the
   # committed lock file so this script also works from a clean CI checkout.
   if [[ -f "${chart_dir}/Chart.lock" ]]; then
-    if [[ "${chart}" == "helm/traefik-public" ]] && \
+    if [[ "${chart}" == "helm/traefik" || \
+          "${chart}" == "helm/traefik-public" ]] && \
        ! compgen -G "${chart_dir}/charts/traefik-*.tgz" >/dev/null; then
       helm repo add traefik https://traefik.github.io/charts \
         --force-update >/dev/null
     fi
-    helm dependency build "${chart_dir}" >/dev/null
+    helm dependency build --skip-refresh "${chart_dir}" >/dev/null
   fi
 
   helm template "${release}" "${chart_dir}" \
@@ -53,6 +54,7 @@ render_chart openvpn helm/openvpn openvpn
 render_chart public-sites helm/public-sites public-sites
 render_chart registry helm/registry registry
 render_chart tailscale helm/tailscale tailscale
+render_chart traefik helm/traefik traefik
 render_chart traefik-public helm/traefik-public traefik-public
 render_chart uptime-kuma helm/uptime-kuma uptime-kuma
 

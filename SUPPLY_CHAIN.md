@@ -99,6 +99,13 @@ chart 41.2.0. On 2026-08-10, a workflow-equivalent Trivy 0.69.3 scan reported
 zero fixed high or critical findings for that image. This replaces Traefik
 3.6.6, whose baseline contained four critical findings.
 
+The internal Traefik controller uses the same pinned image and locked upstream
+chart. Its rendered resources are included in CI. Its ClusterRole exceptions
+cover two capabilities intrinsic to the current cluster-wide ingress design:
+watching TLS Secrets in served namespaces and updating Ingress status with the
+internal MetalLB address. Both exceptions are exact-path scoped and expire for
+review; the controller cannot mutate application Services or Ingress rules.
+
 The homelab Code Server is an explicitly privileged management environment. Its
 cluster-admin RBAC exceptions document existing intent rather than declaring
 the design generally safe. Its shorter-lived security-context exception tracks

@@ -1,4 +1,21 @@
 misconfigurations:
+  - id: KSV-0041
+    paths:
+      - "homelab-traefik/charts/traefik/templates/rbac/clusterrole.yaml"
+    statement: >-
+      The internal ingress controller must watch TLS Secrets across the
+      namespaces whose Ingress and IngressRoute resources it serves. It is not
+      reachable through the public Cloudflare path. Reevaluate namespace-scoped
+      Roles as the internal service set is consolidated.
+    expired_at: 2027-02-10
+  - id: KSV-0056
+    paths:
+      - "homelab-traefik/charts/traefik/templates/rbac/clusterrole.yaml"
+    statement: >-
+      Traefik requires update on ingresses/status to publish the internal
+      MetalLB endpoint. It has read-only access to Services and cannot create,
+      patch, or delete application traffic resources.
+    expired_at: 2027-02-10
   - id: KSV-0044
     paths:
       - "homelab-code-server/templates/code-server-homelab-rbac.yaml"

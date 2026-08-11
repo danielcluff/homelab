@@ -199,7 +199,8 @@ kubectl wait --for=condition=ready pod -n metallb-system -l app.kubernetes.io/co
 -   External IP: `192.168.1.50` (from MetalLB)
 -   Ports: HTTP 80, HTTPS 443
 -   Dashboard: `https://traefik.elate.me`
--   Config files: `helm/traefik/values.yaml`
+-   Locked Helm chart: `helm/traefik/` (upstream chart 41.2.0)
+-   Image: Traefik 3.7.10 pinned by multi-architecture digest
 -   TLS: Let's Encrypt wildcard certificate for `*.elate.me`
 
 **Status**: Running
@@ -1137,6 +1138,7 @@ homelab/
  │   ├── registry/                      # Local image registry
  │   ├── sealed-secrets/                # Vendored controller chart
  │   ├── tailscale/                     # Subnet router
+ │   ├── traefik/                       # Internal LAN ingress controller
  │   ├── traefik-public/                # Isolated public ingress
  │   └── uptime-kuma/                   # Uptime monitoring
  ├── manifests/                         # Supporting cluster-wide resources
