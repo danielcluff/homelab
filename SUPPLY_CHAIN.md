@@ -44,8 +44,19 @@ Any GitHub Action must be pinned to a full commit SHA, including checkout and
 security-scanning actions. Version tags alone are mutable and are not an
 acceptable trust boundary.
 
-A repository and Kubernetes misconfiguration scanner is the next security
-slice. Scanner binaries, databases, and Actions must be evaluated and pinned
-before adding them. A scan should initially report findings without blocking
-all pull requests; blocking should be enabled only after existing findings are
-triaged and recorded.
+The `Security scan` GitHub Actions workflow runs on pull requests, pushes to
+`main`, Monday mornings, and manual dispatches. It checks Kubernetes and
+repository configuration for high/critical misconfigurations and scans
+committed files for secrets.
+
+The workflow uses the immutable, remediated Trivy Action 0.35.0 commit and the
+known-safe Trivy 0.69.3 binary identified in GHSA-69fq-xp46-6x23. All Actions
+are referenced by full commit SHA. The vendored Sealed Secrets chart is skipped
+because it is upstream code rather than a locally maintained workload; the
+committed encrypted SealedSecret resources remain in scope.
+
+Both scans initially use `exit-code: "0"`, so findings are visible without
+blocking pull requests. After the first GitHub run is reviewed, record or fix
+the baseline findings and change the secret scan to `exit-code: "1"`. Promote
+the configuration scan separately once its existing high/critical findings
+have been triaged.

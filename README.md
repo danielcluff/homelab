@@ -1155,6 +1155,7 @@ homelab/
 -   **TODO — off-site backups**: Configure a remote Longhorn backup target and schedule Talos `etcd` snapshots to encrypted off-cluster storage. This is intentionally deferred and local snapshots do not protect against loss of the cluster or its storage nodes.
 -   **Updates**: Keep Kubernetes, Talos, and applications updated
 -   **Update discovery**: Review-only Renovate configuration is available; see [SUPPLY_CHAIN.md](SUPPLY_CHAIN.md)
+-   **Security scanning**: GitHub Actions reports high/critical configuration findings and potential committed secrets; scans remain report-only until the initial baseline is triaged
 -   **Monitoring**: Complete monitoring stack deployed - see [Monitoring Stack](#monitoring-stack) section
 
 ---
