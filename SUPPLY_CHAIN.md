@@ -94,6 +94,11 @@ findings in its compiled Go dependencies. There is no newer stable upstream
 release to adopt yet. These findings remain visible in the report-only image
 baseline and should be reevaluated when upstream publishes a newer release.
 
+The public Traefik controller is pinned to Traefik 3.7.10 through upstream
+chart 41.2.0. On 2026-08-10, a workflow-equivalent Trivy 0.69.3 scan reported
+zero fixed high or critical findings for that image. This replaces Traefik
+3.6.6, whose baseline contained four critical findings.
+
 The homelab Code Server is an explicitly privileged management environment. Its
 cluster-admin RBAC exceptions document existing intent rather than declaring
 the design generally safe. Its shorter-lived security-context exception tracks
