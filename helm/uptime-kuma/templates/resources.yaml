@@ -25,6 +25,10 @@ metadata:
     app: uptime-kuma
 spec:
   replicas: 1
+  # The data volume is ReadWriteOnce; detach it before starting a replacement.
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels:
       app: uptime-kuma
@@ -50,6 +54,11 @@ spec:
             capabilities:
               drop:
                 - ALL
+              # The v1 image entrypoint uses setpriv to select its runtime UID
+              # and GID before launching Node.js.
+              add:
+                - SETGID
+                - SETUID
           ports:
             - name: http
               containerPort: 3001

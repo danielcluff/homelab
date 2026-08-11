@@ -27,6 +27,11 @@ metadata:
     app: registry
 spec:
   replicas: 1
+  # The registry data volume is ReadWriteOnce. Stop the old pod before moving
+  # the volume so a rollout cannot deadlock across nodes.
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels:
       app: registry
