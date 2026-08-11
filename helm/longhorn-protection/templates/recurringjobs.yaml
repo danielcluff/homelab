@@ -1,0 +1,69 @@
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: allow-recurring-job-while-volume-detached
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: homelab-longhorn-protection
+value: {{ .Values.allowRecurringJobWhileVolumeDetached | quote }}
+{{- if .Values.localSnapshots.enabled }}
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: daily-snapshot
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: homelab-longhorn-protection
+spec:
+  cron: {{ .Values.localSnapshots.cron | quote }}
+  task: snapshot
+  groups:
+    - default
+  retain: {{ .Values.localSnapshots.retain }}
+  concurrency: {{ .Values.localSnapshots.concurrency }}
+  labels:
+    homelab.elate.me/protection: local
+{{- end }}
+{{- if .Values.remoteBackups.enabled }}
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: daily-backup
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: homelab-longhorn-protection
+spec:
+  cron: {{ .Values.remoteBackups.cron | quote }}
+  task: backup
+  groups:
+    - default
+  retain: {{ .Values.remoteBackups.retain }}
+  concurrency: {{ .Values.remoteBackups.concurrency }}
+  parameters:
+    full-backup-interval: {{ .Values.remoteBackups.fullBackupInterval | quote }}
+  labels:
+    homelab.elate.me/protection: remote
+{{- end }}
+{{- if .Values.systemBackups.enabled }}
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: weekly-system-backup
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: homelab-longhorn-protection
+spec:
+  cron: {{ .Values.systemBackups.cron | quote }}
+  task: system-backup
+  retain: {{ .Values.systemBackups.retain }}
+  concurrency: 1
+  parameters:
+    volume-backup-policy: {{ .Values.systemBackups.volumeBackupPolicy | quote }}
+{{- end }}

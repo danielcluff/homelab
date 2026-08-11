@@ -5,8 +5,8 @@
 # Deploy with: helm install code-server-homelab pascaliske/code-server -n devenv -f helm/code-server/values-homelab.yaml
 
 image:
-  repository: codercom/code-server
-  tag: latest
+  repository: ghcr.io/coder/code-server
+  tag: "latest@sha256:3623e6362abdec6258472882b06fdeec9d6ce2ad3fda316b3c5d7ed092b89add"
   pullPolicy: IfNotPresent
 
 # Code-server authentication

@@ -5,7 +5,8 @@
 image:
   repository: linuxserver/heimdall
   pullPolicy: IfNotPresent
-  tag: latest
+  # Pin the exact image while retaining the human-readable upstream channel.
+  tag: "latest@sha256:97d0cdf2a70da1f276da96051f47926f68b880293b3e1bd3e4d209e11573fb93"
 
 env:
   TZ: America/Chicago

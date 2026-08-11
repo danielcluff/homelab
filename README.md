@@ -1095,6 +1095,7 @@ homelab/
  ├── AGENTS.md                          # Codex repository guidance
  ├── CLAUDE.md                          # Claude Code guidance
  ├── MONITORING_SETUP.md                # Monitoring setup guide
+ ├── DISASTER_RECOVERY.md               # Backup architecture and restore testing
  ├── QUICK_START_MONITORING.md          # Quick monitoring reference
  ├── generate-talos-config.sh           # Script to generate node configurations
  ├── helm/                              # Helm charts and upstream values
@@ -1103,6 +1104,7 @@ homelab/
  │   ├── code-server/                   # Development environments
  │   ├── grafana/                       # Grafana workload and provisioning
  │   ├── network-policies/              # Cilium policies and classifications
+ │   ├── longhorn-protection/            # Recurring snapshot and backup policy
  │   ├── openvpn/                       # Disabled TAP VPN for classic Mac OS
  │   ├── public-sites/                  # elate.me and elate.biz
  │   ├── registry/                      # Local image registry
@@ -1148,7 +1150,8 @@ homelab/
 
 ### Maintenance
 
--   **Backups**: Set up regular backups of Longhorn volumes
+-   **Local recovery**: Longhorn takes daily local snapshots and retains seven per volume; see [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)
+-   **TODO — off-site backups**: Configure a remote Longhorn backup target and schedule Talos `etcd` snapshots to encrypted off-cluster storage. This is intentionally deferred and local snapshots do not protect against loss of the cluster or its storage nodes.
 -   **Updates**: Keep Kubernetes, Talos, and applications updated
 -   **Monitoring**: Complete monitoring stack deployed - see [Monitoring Stack](#monitoring-stack) section
 

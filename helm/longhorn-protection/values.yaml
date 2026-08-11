@@ -1,0 +1,22 @@
+localSnapshots:
+  enabled: true
+  cron: "15 3 * * *"
+  retain: 7
+  concurrency: 2
+
+allowRecurringJobWhileVolumeDetached: true
+
+# Remote backups remain disabled until an off-cluster target and its
+# credentials are configured. Never point this at storage inside the cluster.
+remoteBackups:
+  enabled: false
+  cron: "45 3 * * *"
+  retain: 14
+  concurrency: 2
+  fullBackupInterval: 7
+
+systemBackups:
+  enabled: false
+  cron: "30 4 * * 0"
+  retain: 4
+  volumeBackupPolicy: if-not-present
