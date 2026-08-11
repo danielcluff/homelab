@@ -27,8 +27,16 @@ Traefik replicas. The rules in `helm/prometheus/values.yaml` alert when:
 - either public site has zero available replicas; or
 - cloudflared or public Traefik remains below its desired replica count.
 
-The rules are evaluated locally and sent to Alertmanager. Alertmanager still
-needs a real notification receiver before alerts can leave the cluster.
+The rules are evaluated locally and sent to Alertmanager. Discord delivery is
+configured through the `monitoring/alertmanager-discord-config` Secret. Create
+or rotate it without exposing the webhook in Git:
+
+```bash
+./scripts/seal-alertmanager-discord.sh
+kubectl apply -f sealedsecrets/alertmanager-discord-config-sealed.yaml
+helm upgrade prometheus prometheus-community/prometheus --version 28.2.1 \
+  -n monitoring -f helm/prometheus/values.yaml --wait --timeout 10m
+```
 
 ### How It Works
 

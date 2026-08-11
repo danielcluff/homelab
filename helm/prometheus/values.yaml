@@ -3,6 +3,16 @@
 # This captures the currently installed user-supplied values in Git.
 alertmanager:
   enabled: true
+  config:
+    # The complete configuration contains the Discord webhook and is supplied
+    # by the alertmanager-discord-config SealedSecret instead of a ConfigMap.
+    enabled: false
+  extraSecretMounts:
+    - name: alertmanager-config
+      mountPath: /etc/alertmanager/alertmanager.yml
+      subPath: alertmanager.yml
+      secretName: alertmanager-discord-config
+      readOnly: true
   persistentVolume:
     enabled: true
     size: 2Gi

@@ -15,6 +15,7 @@ The managed secrets are:
 | `secrets/pihole-password.yaml`                                              | `sealedsecrets/pihole-password-sealed.yaml`          | `pihole/pihole-password` (`password`)                            | Pi-hole Helm release                   |
 | Cloudflare DNS token (entered interactively; no plaintext file required)    | `sealedsecrets/cloudflare-dns-sealed.yaml`           | `cert-manager/cloudflare-dns-homelab-cert-manager` (`api-token`) | `letsencrypt-cloudflare` ClusterIssuer |
 | Cloudflare Tunnel token (entered interactively; no plaintext file required) | `sealedsecrets/cloudflared-tunnel-token-sealed.yaml` | `cloudflare-tunnel/cloudflared-tunnel-token` (`api-token`)       | cloudflared Helm release               |
+| Discord webhook (entered interactively; temporary file is deleted)          | `sealedsecrets/alertmanager-discord-config-sealed.yaml`          | `monitoring/alertmanager-discord-config` (`alertmanager.yml`)    | Alertmanager Discord receiver          |
 
 ## Controller installation
 
@@ -84,6 +85,15 @@ kubeseal \
   --sealed-secret-file sealedsecrets/cloudflared-tunnel-token-sealed.yaml
 unset CLOUDFLARED_TOKEN
 kubectl apply -f sealedsecrets/cloudflared-tunnel-token-sealed.yaml
+```
+
+For Alertmanager, use the repository helper. It reads the Discord webhook
+silently, creates a temporary mode-600 Alertmanager configuration, seals the
+complete file with strict scope, and deletes the plaintext on exit:
+
+```bash
+./scripts/seal-alertmanager-discord.sh
+kubectl apply -f sealedsecrets/alertmanager-discord-config-sealed.yaml
 ```
 
 Review only names, namespaces, and encrypted key names before applying; never print plaintext or decoded Kubernetes Secrets:
