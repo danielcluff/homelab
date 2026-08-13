@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .Values.application.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+spec:
+  project: {{ .Values.project.name }}
+  source:
+    repoURL: {{ .Values.project.sourceRepository | quote }}
+    targetRevision: {{ .Values.application.revision | quote }}
+    path: {{ .Values.application.path | quote }}
+    helm:
+      releaseName: homelab-apps
+      valueFiles:
+        - {{ .Values.application.valuesFile | quote }}
+  destination:
+    server: {{ .Values.project.destinationServer | quote }}
+    namespace: {{ .Values.project.destinationNamespace | quote }}
+  syncPolicy:
+    {{- if .Values.application.automated.enabled }}
+    automated:
+      prune: {{ .Values.application.automated.prune }}
+      selfHeal: {{ .Values.application.automated.selfHeal }}
+      allowEmpty: true
+    {{- end }}
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - CreateNamespace=false

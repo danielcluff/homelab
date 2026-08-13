@@ -1,0 +1,28 @@
+image:
+  repository: registry
+  tag: "3.1.1"
+  digest: sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33
+  pullPolicy: IfNotPresent
+
+hostname: images.elate.me
+tlsSecretName: images-elate-me-tls
+clusterIssuer: letsencrypt-cloudflare
+
+auth:
+  existingSecret: application-registry-auth
+  htpasswdKey: htpasswd
+  realm: Homelab Application Registry
+
+persistence:
+  storageClassName: longhorn
+  accessMode: ReadWriteOnce
+  size: 50Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+

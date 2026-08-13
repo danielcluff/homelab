@@ -45,6 +45,9 @@ render_chart() {
 }
 
 render_chart cloudflared helm/cloudflared cloudflare-tunnel
+render_chart application-registry helm/application-registry application-registry
+render_chart argocd helm/argocd argocd
+render_chart argocd-bootstrap helm/argocd-bootstrap argocd
 render_chart code-server helm/code-server devenv
 render_chart grafana helm/grafana monitoring
 render_chart longhorn-protection helm/longhorn-protection longhorn-system

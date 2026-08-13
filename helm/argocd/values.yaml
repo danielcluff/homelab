@@ -1,0 +1,51 @@
+argo-cd:
+  # Use namespaced upstream RBAC. The wrapper chart grants the application
+  # controller an explicit Role only in public-sites.
+  createClusterRoles: false
+
+  global:
+    domain: argocd.elate.me
+    networkPolicy:
+      create: false
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
+      seccompProfile:
+        type: RuntimeDefault
+
+  configs:
+    cm:
+      admin.enabled: "true"
+      application.instanceLabelKey: argocd.argoproj.io/instance
+    params:
+      server.insecure: false
+
+  dex:
+    enabled: false
+
+  applicationSet:
+    # The upstream chart always renders this controller; zero replicas keeps it
+    # inactive until multi-application generation is deliberately introduced.
+    replicas: 0
+
+  notifications:
+    enabled: false
+
+  server:
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: false
+
+  redis-ha:
+    enabled: false
+
+  redisSecretInit:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      seccompProfile:
+        type: RuntimeDefault

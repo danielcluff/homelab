@@ -52,7 +52,6 @@ All nodes use interface `enp2s0` with static IPs, gateway `192.168.1.1`, and DNS
 | Resource         | IP/Range          | Purpose                        |
 |------------------|-------------------|--------------------------------|
 | Gateway          | 192.168.1.1       | Router                         |
-| Debian Box       | 192.168.1.40      | Management server              |
 | Control Plane    | 192.168.1.41      | Kubernetes API (port 6443)     |
 | Worker 1         | 192.168.1.42      | Kubernetes worker              |
 | Worker 2         | 192.168.1.43      | Kubernetes worker              |
@@ -110,6 +109,7 @@ homelab/
 │   ├── pihole/values.yaml             # DNS + ad blocking
 │   ├── heimdall/values.yaml           # Dashboard
 │   ├── code-server/                   # Main and homelab dev environments
+│       ├── values.yaml                # Canonical management-image reference
 │       ├── values-main.yaml           # dev.elate.me
 │       ├── values-homelab.yaml        # homelab.elate.me
 │       └── values-project1.yaml       # Template for new projects
@@ -124,6 +124,8 @@ homelab/
 │   ├── tailscale/                     # Tailscale subnet router
 │   ├── traefik-public/                # Isolated public ingress controller
 │   └── uptime-kuma/                   # Uptime monitoring
+├── images/
+│   └── code-server-homelab/           # Pinned management image and BuildKit config
 ├── manifests/                         # Raw Kubernetes manifests
 │   ├── cluster-issuer.yaml            # Self-signed issuer (fallback)
 │   ├── letsencrypt-cloudflare-issuer.yaml  # Let's Encrypt ClusterIssuer
@@ -140,6 +142,7 @@ homelab/
 │   ├── worker-192.168.1.42-final.yaml # Worker 1 full config
 │   └── worker-192.168.1.43-final.yaml # Worker 2 full config
 ├── scripts/                           # Utility scripts
+│   ├── build-code-server-homelab.sh   # Build and push management image
 │   ├── setup-uptime-kuma.sh           # Configure Uptime Kuma monitors (bash)
 │   ├── setup-uptime-kuma-socketio.js  # Configure Uptime Kuma monitors (Socket.IO)
 │   ├── cleanup-uptime-kuma-duplicates.js  # Remove duplicate monitors
@@ -172,11 +175,11 @@ Never point Cloudflare Tunnel at the internal Traefik controller. Public applica
 
 ### TLS Certificates
 
-Internal `*.elate.me` services use a wildcard certificate managed by cert-manager with Let's Encrypt (Cloudflare DNS-01 validation):
+Internal `*.elate.me` services use certificates managed by cert-manager with Let's Encrypt and Cloudflare DNS-01 validation. TLS Secrets are namespace-scoped and each distinct Ingress host list must use a distinct Secret name.
 
 - **ClusterIssuer**: `letsencrypt-cloudflare` (defined in `manifests/letsencrypt-cloudflare-issuer.yaml`)
-- **Certificate**: `elate-me-tls` in cert-manager namespace (defined in `manifests/wildcard-cert-letsencrypt.yaml`)
-- **Secret name**: `elate.me-tls` (referenced by all ingresses)
+- **Wildcard Certificate**: `elate-me-tls` in cert-manager (defined in `manifests/wildcard-cert-letsencrypt.yaml`)
+- **Ingress certificates**: created in the workload namespace by ingress-shim or an explicit chart-managed `Certificate`
 - **Email**: daniel@elate.me
 - **Renewal**: 90 days validity, renews 15 days before expiry
 
@@ -186,7 +189,7 @@ annotations:
   cert-manager.io/cluster-issuer: letsencrypt-cloudflare
   traefik.ingress.kubernetes.io/router.tls: "true"
 tls:
-  - secretName: elate.me-tls
+  - secretName: <unique-hostname>-tls
     hosts:
       - <service>.elate.me
 ```
@@ -201,7 +204,7 @@ Default storage class. All PVCs use `storageClassName: longhorn`. Replica count 
 
 ### Dev Environment Architecture
 
-Three code-server instances in the `devenv` namespace share a 50Gi PVC (`devenv-shared`) mounted at `/mnt/shared`. Each has its own workspace PVC. The homelab instance (`homelab.elate.me`) has full cluster admin RBAC and auto-installs kubectl, helm, git, Claude Code, and Open Code on startup.
+Two code-server instances in the `devenv` namespace share a 50Gi PVC (`devenv-shared`) mounted at `/mnt/shared`. Each has its own workspace PVC. The homelab instance (`homelab.elate.me`) has full cluster admin RBAC and uses the pinned management image built from `images/code-server-homelab/Dockerfile`; tools must not be installed from a lifecycle hook.
 
 ### Docker Registry
 

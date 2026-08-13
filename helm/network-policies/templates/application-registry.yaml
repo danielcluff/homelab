@@ -1,0 +1,36 @@
+{{- range .Values.namespaces }}
+{{- if and (eq .name "application-registry") (eq .mode "enforce") }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: application-registry-enforced
+  namespace: application-registry
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    homelab.elate.me/policy-stage: enforce
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: application-registry
+  ingress:
+    # All authenticated client traffic enters through internal Traefik. This
+    # includes trusted LAN build runners and Talos nodes pulling images through
+    # the split-DNS hostname.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: traefik
+            app.kubernetes.io/name: traefik
+      toPorts:
+        - ports:
+            - { port: "5000", protocol: TCP }
+    # Kubelet readiness and liveness probes target the Pod IP directly.
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - { port: "5000", protocol: TCP }
+  # Filesystem storage and mounted auth have no outbound dependency.
+  egress: []
+{{- end }}
+{{- end }}
+

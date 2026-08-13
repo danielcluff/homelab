@@ -27,8 +27,6 @@ See [MetalLB Load Balancer section](#1-metallb-load-balancer) for details on Loa
 
 ### Hardware
 
--   **Debian Box**: 192.168.1.40 (management/utility server)
-
 -   **Talos Control Plane**: 192.168.1.41
     -   Cluster name: `homelab-007`
     -   Disk: `/dev/nvme0n1`
@@ -79,7 +77,7 @@ See `helm/network-policies/README.md` for the rollout procedure.
 
 -   Namespace: `cert-manager`
 -   ClusterIssuers: `letsencrypt-cloudflare` (primary), `selfsigned-issuer` (fallback)
--   Certificate: Wildcard `*.elate.me` via Let's Encrypt with Cloudflare DNS-01 validation
+-   Certificates: Let's Encrypt certificates via Cloudflare DNS-01 validation
 -   Config files: `manifests/letsencrypt-cloudflare-issuer.yaml`, `manifests/wildcard-cert-letsencrypt.yaml`, `manifests/cluster-issuer.yaml`
 
 **Status**: Running
@@ -87,10 +85,11 @@ See `helm/network-policies/README.md` for the rollout procedure.
 **Features**:
 
 -   Automatic certificate provisioning via Let's Encrypt
--   Wildcard certificate for `*.elate.me` and `elate.me`
+-   Wildcard certificate available for `*.elate.me` and `elate.me`
+-   Namespace-local certificates created by ingress-shim or explicit chart-managed `Certificate` resources
 -   Certificate renewal every 90 days (renews 15 days before expiry)
 -   Cloudflare DNS-01 challenge solver
--   TLS secret `elate.me-tls` referenced by all ingresses
+-   Unique TLS Secret names for distinct Ingress host lists; Secrets are never shared across namespaces
 
 ### 1. MetalLB Load Balancer
 
@@ -509,30 +508,20 @@ Longhorn Storage
 
 ### Deployment
 
-**Prerequisites**:
+Both environments are resources in the repository-owned
+`helm/code-server` chart. Deploy or upgrade them together:
 
 ```bash
-# Add code-server Helm repository
-helm repo add coder https://helm.coder.com/v2
-helm repo update
-
-# Create namespace
-kubectl create namespace devenv
-
-# Create shared storage
-helm upgrade --install code-server helm/code-server -n devenv
+helm upgrade --install code-server helm/code-server \
+  --namespace devenv \
+  --create-namespace \
+  --wait
 ```
 
-**Deploy main dev environment**:
-
-```bash
-# Deploy code-server
-helm install code-server-main coder/code-server \
-  -n devenv \
-  -f helm/code-server/values-main.yaml
-
-# Access at: https://dev.elate.me
-```
+The homelab management container uses the digest-pinned image built from
+`images/code-server-homelab/Dockerfile`. Rebuild it with
+`scripts/build-code-server-homelab.sh`, update `helm/code-server/values.yaml`
+with the returned registry digest, pass CI, and then upgrade the chart.
 
 ### Access Methods
 
@@ -543,22 +532,11 @@ helm install code-server-main coder/code-server \
 
 ### Creating Project Environments
 
-```bash
-# 1. Copy template
-cp helm/code-server/values-project1.yaml helm/code-server/values-myproject.yaml
-
-# 2. Edit values-myproject.yaml:
-#    - Change hostname (e.g., myproject.elate.me)
-#    - Update PROJECT_NAME env var
-#    - Adjust storage size if needed
-
-# 3. Add DNS entry to helm/pihole/values.yaml
-
-# 4. Deploy
-helm install code-server-myproject coder/code-server \
-  -n devenv \
-  -f helm/code-server/values-myproject.yaml
-```
+`values-project1.yaml` is a reference for a future environment, not an
+independently deployable release. Add a new Deployment, Service, PVC, and
+Ingress template to the local chart, give its host list a unique TLS Secret,
+add the exact Traefik network-policy egress rule, and add internal Pi-hole DNS.
+Deploy it through the same `code-server` Helm release.
 
 ### Management
 
@@ -665,7 +643,6 @@ devpod up --id devpod-primary . --ide vscode
 | Control Plane| 192.168.1.41    | 6443    | Kubernetes API Server      |
 | Worker 1     | 192.168.1.42    | -       | Kubernetes worker          |
 | Worker 2     | 192.168.1.43    | -       | Kubernetes worker          |
-| Debian Box   | 192.168.1.40    | -       | Management/Utility Server  |
 | Traefik      | 192.168.1.50    | 80, 443 | Ingress Controller         |
 | Pi-hole      | 192.168.1.51    | 53, 80  | DNS & Web UI               |
 | Registry     | 192.168.1.53    | 5000    | Docker Registry            |
@@ -1141,6 +1118,8 @@ homelab/
  │   ├── traefik/                       # Internal LAN ingress controller
  │   ├── traefik-public/                # Isolated public ingress
  │   └── uptime-kuma/                   # Uptime monitoring
+ ├── images/                            # Repository-owned workload images
+ │   └── code-server-homelab/           # Pinned management image and BuildKit config
  ├── manifests/                         # Supporting cluster-wide resources
  │   ├── letsencrypt-cloudflare-issuer.yaml  # Let's Encrypt ClusterIssuer
  │   ├── wildcard-cert-letsencrypt.yaml      # *.elate.me certificate
@@ -1155,6 +1134,7 @@ homelab/
  │   ├── fix-kernel-modules.yaml
  │   └── worker-*.yaml                  # Worker node configs
  ├── scripts/                           # Utility scripts
+ │   ├── build-code-server-homelab.sh   # Build and push the management image
  │   ├── setup-uptime-kuma.sh           # Configure monitors (bash)
  │   ├── setup-uptime-kuma-socketio.js  # Configure monitors (Node.js)
  │   └── cleanup-uptime-kuma-duplicates.js

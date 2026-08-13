@@ -1,7 +1,7 @@
 ---
-# Main dev environment configuration
-# Accessible at https://dev.elate.me
-# Deploy with: helm install code-server-main coder/code-server -n devenv -f helm/code-server/values-main.yaml
+# Legacy reference profile for the main development environment.
+# The repository-owned chart does not consume this file. Its canonical
+# deployment configuration lives in templates/code-server-main.yaml.
 
 image:
   repository: ghcr.io/coder/code-server
@@ -92,20 +92,3 @@ nodeSelector: {}
 
 # Affinity
 affinity: {}
-
-# Lifecycle hooks to install Claude Code and Open Code
-lifecycle:
-  postStart:
-    exec:
-      command:
-        - /bin/bash
-        - -c
-        - |
-          # Install Node.js if not present
-          if ! command -v node &> /dev/null; then
-            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-          fi
-          # Install Claude Code and Open Code
-          sudo npm install -g @anthropic-ai/claude-code opencode-ai || true
-          echo "Claude Code and Open Code installation complete"

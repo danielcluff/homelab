@@ -1,365 +1,93 @@
-# Development Environments
+# Code-server environments
 
-This directory contains Helm values configurations for deploying VS Code dev environments in Kubernetes using [code-server](https://github.com/coder/code-server).
+This repository-owned Helm chart deploys two internal VS Code environments in
+the `devenv` namespace:
 
-The homelab management instance uses a repository-owned image built from
-`images/code-server-homelab/Dockerfile`. It contains pinned, checksum-verified
-Node.js, kubectl, Helm, Codex, Claude Code, and OpenCode installations. Do not
-restore package installation in a lifecycle hook: it makes pod startup depend
-on the internet and previously exhausted the pod's memory limit.
+| Deployment | URL | Purpose | Image |
+|---|---|---|---|
+| `code-server-main` | `https://dev.elate.me` | General development | Pinned upstream code-server image |
+| `code-server-homelab` | `https://homelab.elate.me` | Cluster management | Repository-built management image |
 
-Build and push the image to the LAN registry, then replace the placeholder
-digest in `values-homelab.yaml` with the digest printed by the build:
+Both environments have dedicated Longhorn workspace PVCs and mount the shared
+`devenv-shared` PVC at `/mnt/shared`. The chart uses `Recreate` deployments and
+pod affinity so the ReadWriteOnce shared volume is not attached to multiple
+nodes during a rollout.
 
-```bash
-./scripts/build-code-server-homelab.sh 20260810
-```
-
-## Overview
-
-- **IDE**: code-server (VS Code in browser)
-- **Access**: Browser-based at `https://dev.home.com` (and project-specific URLs)
-- **Storage**: Longhorn persistent volumes (workspace + shared storage)
-- **Namespace**: `devenv`
-
-## Architecture
-
-```
-Browser (https://dev.home.com)
-    ↓
-Traefik Ingress (TLS via cert-manager)
-    ↓
-code-server Pod
-    ├─ Workspace PVC (project-specific code)
-    └─ Shared PVC (common tools, caches)
-    ↓
-Longhorn Storage
-```
-
-## Prerequisites
-
-1. Helm repository added:
-   ```bash
-   helm repo add coder https://helm.coder.com/v2
-   helm repo update
-   ```
-
-2. Namespace and shared storage created:
-   ```bash
-   kubectl create namespace devenv
-   helm upgrade --install code-server . -n devenv
-   ```
-
-3. Each Ingress uses a hostname-specific TLS Secret. Its cert-manager
-   annotation creates and renews the corresponding Certificate automatically.
-   Never reuse one Secret name for Ingresses with different host lists.
-
-## Deployment
-
-### Main Dev Environment
-
-Deploy the primary dev environment accessible at `https://dev.home.com`:
+## Deploy
 
 ```bash
-helm install code-server-main coder/code-server \
-  -n devenv \
-  -f values-main.yaml
+helm upgrade --install code-server helm/code-server \
+  --namespace devenv \
+  --create-namespace \
+  --wait --timeout 10m
 ```
 
-**Configuration**:
-- **URL**: https://dev.home.com
-- **Workspace Storage**: 20Gi
-- **Shared Storage**: 50Gi (mounted at `/mnt/shared`)
-- **Resources**: 500m-2000m CPU, 1-4Gi memory
-
-### Project-Specific Environment
-
-Create a new dev environment for a specific project:
-
-1. **Copy template**:
-   ```bash
-   cp values-project1.yaml values-myproject.yaml
-   ```
-
-2. **Edit configuration**:
-   - Change `host:` under `ingress.hosts` (e.g., `myproject.home.com`)
-   - Update `PROJECT_NAME` env var
-   - Adjust `persistence.size` if needed
-   - Update TLS hosts to match
-
-3. **Add DNS entry** in `../../helm/pihole/values.yaml`:
-   ```yaml
-   customDnsEntries:
-     - address: 192.168.1.50
-       domain: myproject.home.com
-   ```
-
-4. **Update Pi-hole**:
-   ```bash
-   helm upgrade pihole mojo2600/pihole -n pihole -f ../../helm/pihole/values.yaml
-   ```
-
-5. **Deploy**:
-   ```bash
-   helm install code-server-myproject coder/code-server \
-     -n devenv \
-     -f values-myproject.yaml
-   ```
-
-## Management
-
-### List Deployments
+Validate the release:
 
 ```bash
-kubectl get deployments -n devenv
-kubectl get pods -n devenv
-kubectl get pvc -n devenv
-kubectl get ingress -n devenv
-```
-
-### Access Dev Environment
-
-**Via Browser**:
-- Main: https://dev.home.com
-- Projects: https://project1.home.com, https://myproject.home.com
-
-**Via kubectl exec**:
-```bash
-# Interactive shell
-kubectl exec -it -n devenv deployment/code-server-main -- bash
-
-# Run command
-kubectl exec -n devenv deployment/code-server-main -- git status
-```
-
-**Via Port-Forward** (local access):
-```bash
-kubectl port-forward -n devenv svc/code-server-main 8080:8080
-# Then access: http://localhost:8080
-```
-
-### View Logs
-
-```bash
-kubectl logs -n devenv deployment/code-server-main
-kubectl logs -n devenv deployment/code-server-main -f  # Follow logs
-```
-
-### Update Environment
-
-```bash
-# Edit values file, then:
-helm upgrade code-server-main coder/code-server \
-  -n devenv \
-  -f values-main.yaml
-
-# Check rollout status
 kubectl rollout status deployment/code-server-main -n devenv
+kubectl rollout status deployment/code-server-homelab -n devenv
+kubectl get pods,pvc,ingress,certificate -n devenv
+curl --resolve dev.elate.me:443:192.168.1.50 https://dev.elate.me/
+curl --resolve homelab.elate.me:443:192.168.1.50 https://homelab.elate.me/
 ```
 
-### Delete Environment
+## Management image
+
+`images/code-server-homelab/Dockerfile` extends the pinned upstream code-server
+image with checksum-verified Node.js, kubectl, and Helm binaries plus pinned
+Codex, Claude Code, and OpenCode packages. Package installation must happen at
+image-build time, never in `postStart` or another lifecycle hook.
+
+Build and push an amd64 image to the LAN registry:
 
 ```bash
-# Delete deployment (PVC is retained)
-helm uninstall code-server-project1 -n devenv
-
-# Delete PVC if you want to remove data permanently
-kubectl delete pvc -n devenv <pvc-name>
+./scripts/build-code-server-homelab.sh YYYYMMDD
 ```
 
-## Storage
+The script prints the registry digest. Update `values.yaml`, render the chart,
+and pass CI before deploying it. Kubernetes must pull the image by digest.
 
-### Layout
+The local registry is plain HTTP on `192.168.1.53:5000`. The build script uses
+the narrowly scoped BuildKit configuration committed beside the Dockerfile;
+do not route image pushes through Cloudflare or the registry Ingress.
 
-```
-/home/coder/                    # Workspace PVC (per environment)
-├── .config/                    # code-server config
-├── .local/                     # Extensions, settings
-└── workspace/                  # Your code here
+## TLS and ingress
 
-/mnt/shared/                    # Shared PVC (all environments)
-├── tools/                      # Common binaries, SDKs
-├── cache/                      # Package manager caches
-│   ├── npm/
-│   ├── pip/
-│   └── cargo/
-├── scripts/                    # Utility scripts
-└── datasets/                   # Large shared files
-```
+The two Ingresses use separate secrets:
 
-### Check Storage Usage
+- `dev-elate-me-tls`
+- `homelab-elate-me-tls`
 
-```bash
-kubectl exec -n devenv deployment/code-server-main -- df -h
-kubectl exec -n devenv deployment/code-server-main -- du -sh /home/coder/*
-kubectl exec -n devenv deployment/code-server-main -- du -sh /mnt/shared/*
-```
+cert-manager ingress-shim creates and renews both certificates with the
+`letsencrypt-cloudflare` ClusterIssuer. Never reuse one TLS Secret for different
+host lists, and never route either development environment through public
+Traefik or Cloudflare Tunnel.
 
-### Expand PVC
+Traefik reaches these Services only through the exact selectors and ports in
+`helm/network-policies/templates/traefik.yaml`. Update that policy whenever a
+new environment is added.
 
-If you need more storage:
+## Adding an environment
 
-```bash
-kubectl edit pvc <pvc-name> -n devenv
-# Change storage size, save
-# Longhorn will automatically expand the volume
-```
+`values-project1.yaml` is a reference, not a separately installed release. To
+add an environment:
 
-## Customization
+1. Add its Deployment, Service, PVC, and Ingress templates to this chart.
+2. Use a unique hostname and TLS Secret name.
+3. Add the exact Traefik-to-backend rule to the network-policy chart.
+4. Add its internal hostname to Pi-hole.
+5. Render and scan both charts before upgrading their existing Helm releases.
 
-### Password Protection
-
-Edit values file and change authentication:
-
-```yaml
-extraArgs:
-  - --auth
-  - password
-
-extraEnvVars:
-  - name: PASSWORD
-    value: "your-secure-password"
-```
-
-### Install Additional Tools
+## Operations
 
 ```bash
 kubectl exec -it -n devenv deployment/code-server-main -- bash
-
-# Inside the container
-sudo apt-get update
-sudo apt-get install -y <package-name>
-
-# Or install to shared storage for all environments
-cd /mnt/shared/tools
-wget <tool-url>
-chmod +x <tool>
+kubectl exec -it -n devenv deployment/code-server-homelab -- bash
+kubectl logs -n devenv deployment/code-server-homelab
+kubectl port-forward -n devenv service/code-server-main 8080:8080
 ```
 
-### Pre-install VS Code Extensions
-
-```bash
-kubectl exec -n devenv deployment/code-server-main -- \
-  code-server --install-extension ms-python.python
-
-# Or via script in /mnt/shared/scripts/install-extensions.sh
-```
-
-### Adjust Resources
-
-Edit values file:
-
-```yaml
-resources:
-  limits:
-    cpu: 4000m      # Increase CPU limit
-    memory: 8Gi     # Increase memory limit
-  requests:
-    cpu: 1000m
-    memory: 2Gi
-```
-
-## Troubleshooting
-
-### Can't Access via Browser
-
-1. **Check pod status**:
-   ```bash
-   kubectl get pods -n devenv
-   kubectl describe pod <pod-name> -n devenv
-   ```
-
-2. **Check ingress**:
-   ```bash
-   kubectl get ingress -n devenv
-   kubectl describe ingress <ingress-name> -n devenv
-   ```
-
-3. **Check DNS**:
-   ```bash
-   nslookup dev.home.com 192.168.1.51
-   ```
-
-4. **Check logs**:
-   ```bash
-   kubectl logs -n devenv deployment/code-server-main
-   ```
-
-### PVC Not Mounting
-
-1. **Check PVC status**:
-   ```bash
-   kubectl get pvc -n devenv
-   ```
-
-2. **Check Longhorn**:
-   - Navigate to https://longhorn.home.com
-   - Check volume status
-
-3. **Check events**:
-   ```bash
-   kubectl describe pod <pod-name> -n devenv
-   ```
-
-### Shared Storage Not Accessible
-
-```bash
-# Verify PVC exists
-kubectl get pvc devenv-shared -n devenv
-
-# Verify mount in pod
-kubectl exec -n devenv deployment/code-server-main -- mount | grep shared
-kubectl exec -n devenv deployment/code-server-main -- ls -la /mnt/shared
-```
-
-### Pod Won't Schedule
-
-Check node resources:
-```bash
-kubectl describe node
-kubectl top node
-```
-
-## Quick Reference
-
-### Common Commands
-
-```bash
-# Deploy main environment
-helm install code-server-main coder/code-server -n devenv -f values-main.yaml
-
-# Deploy project environment
-helm install code-server-project1 coder/code-server -n devenv -f values-project1.yaml
-
-# Update environment
-helm upgrade code-server-main coder/code-server -n devenv -f values-main.yaml
-
-# Delete environment
-helm uninstall code-server-main -n devenv
-
-# Access shell
-kubectl exec -it -n devenv deployment/code-server-main -- bash
-
-# View logs
-kubectl logs -n devenv deployment/code-server-main -f
-
-# Port-forward
-kubectl port-forward -n devenv svc/code-server-main 8080:8080
-```
-
-### Storage Sizes
-
-| Environment | Workspace PVC | Shared PVC | Total |
-|-------------|---------------|------------|-------|
-| Main | 20Gi | 50Gi | 70Gi |
-| Project | 10Gi | - | 10Gi |
-
-Shared PVC is created once and reused by all environments.
-
-## Next Steps
-
-1. **Install common tools** in `/mnt/shared/tools`
-2. **Setup git credentials** in workspace
-3. **Install VS Code extensions** you frequently use
-4. **Configure dotfiles** (.bashrc, .vimrc, etc.)
-5. **Create project environments** as needed
+Workspace PVCs carry `helm.sh/resource-policy: keep`; uninstalling the release
+does not delete development data. Verify retained PVCs before any manual
+storage cleanup.

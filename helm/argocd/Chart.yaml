@@ -1,0 +1,10 @@
+apiVersion: v2
+name: homelab-argocd
+description: Pinned Argo CD installation for the homelab cluster
+type: application
+version: 0.1.0
+appVersion: "3.5.1"
+dependencies:
+  - name: argo-cd
+    version: 10.3.3
+    repository: https://argoproj.github.io/argo-helm

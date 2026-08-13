@@ -1,0 +1,7 @@
+apiVersion: v2
+name: homelab-application-registry
+description: Authenticated internal OCI registry for homelab application images
+type: application
+version: 0.1.0
+appVersion: "3.1.1"
+

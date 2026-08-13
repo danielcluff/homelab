@@ -1,0 +1,14 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: application-registry-pull
+  namespace: public-sites
+spec:
+  encryptedData:
+    .dockerconfigjson: AgBqFWLlIlG51W9JeO4HWrCAjIBjHiXvsc5YoYNJ0+Lpvs1mDquB7FuVZ8PPDEMasTgaO2oeLLJnietoRC18tj7jMMFvpxUQ8ke8GhMu/fMZE+BhrE3gbqEfDCzZR0jEXvL2a9oWDn6xBGcrqSAl5Xx7A86HzWhzBnZb6bLBaneq5yaNBxVB0k1R9kp7DRtpgivvSUphzyc5t7/e7mY5eJ7xVQexcbRlL6N54Z/f57wANMXtgzg3dBrseeXUYUDhMAebgzIzB4iwmVoUP8jurfDr1gTIaA7Vydi//lEvqFwg+O6EPdrXQw+66DU62HopjPYymTQJG9tcjPK+V84ZHbLgHS5TKw5MoLZwkeeNqWyF/FdSiGw8+tJQvmomyPgfq5Ex+6GP8aaOAJOuxcmlCxOzIE2Ddd1H4t6ABAkCzbGqhbP/2ic0GLUMOR8hwdy27qbXEH8TmBb5zXJAN0sNfBpKMmQ7/FBWYZyZDgNtOMq6dC5FsTQaC4xuCJw0Nm3lV3EVP7nXOJOGaI5rwiF0Ih20GwbEKlQwAWRCSF8lPbsKEDTKp/BAhhHDhiPTTi0ZERonHi7KRWwtvsecS8yAn8tkputanItJXTfxT8vWZ+kR3hE70tR3Xx9QrwD/IY47eIIW9nUk5qRtLSMSzm9HpZevc9jraQepr3Jq6xI/fsHPBQhSgrXOOekmaMrdcTd1CJZeTULs+cEthHFLl/DGx8dKwIra3ufDo+pUwMBtGs5uxIguuG/pHjpS22u19L1xjhCgoJER1OUmH6G/WO2vghF6vup8hp3VynsR4+b47mX2q3XOf0Jevrc+JcYShH/WZ+bI23Wrf3XJsOPCwsIi3erFTUpn9chguiClVKlaME8ziG1fc3s1M73Rud3JfgPsoLH6R5FVas6pPfk7SIGn5pZT+UldQFNPgGS70TEVVxT1rliSmzB2RQ04dKFYIcde0L9wxtjIZbKdXTSlIwBqvKj8S73roxur0Fys
+  template:
+    metadata:
+      name: application-registry-pull
+      namespace: public-sites
+    type: kubernetes.io/dockerconfigjson

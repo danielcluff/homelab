@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: application-registry-auth
+  namespace: application-registry
+spec:
+  encryptedData:
+    htpasswd: AgAJxSWN/sx+NnS26bc9E7QwX1w/RnALj4aaL/hSgN2UNs90Tb4ObWJXznUEEFkxCWSNhPst+LT+xyzVr8m39IefZXgWbbuoWbF8TAZpCf5qNCyJhdWZy3i2G9144YCV4Azf5riXgsymA1Ed834yS6zGFlawQ3G7LHt3KYZ029L2Nxr7Q5TntM73mpVQ9w9qLZZKDwZUFpLmnJfleX6Vxyfwod8VtskAFrqBqcVRuuOgx3J31Ff9yMnhTYKkVLZDOhCSD5fU0Cf/10AnFh0GXVfxE09x75IR4ginT3Gn9Mhr6yBhvkpxWYR58mMcbSZ4g6z3UA8YpEjEUr+7Tty5/Y4sVlXtZ8AameR9Kt1dnjstDpyH1ssf7y/ILajwtwZkiigrhK7RGfskHZCQfkZl6qArU1zDVHBfXjL0Yu1gal9bVJ/32v09ytMDOJkOaegG6Ryg1BcweZrFNgr7nhwabbYKLHJ0QaTVss23jpcpzX7x0gF8EtlsQZruzboviKQCP8UIOYNUzAwnzi8JGdEsz6MluwS5/x7U5eg0xZM7tZRN2rMRBK9SNDW+gAgkkGnrIVegaMTNFhZrdVDhGzRL0ORfDVvASejSDiRhK7MYCiwPCiRraNsLOMyKOGUhdNI3SlalTaSJki2mFGaXTqU5+KjIBE2nCF8Zb2xTdMILED8CeJQuyvc5tbJIU5EMi8T5CPBylE4fWAsHn2RQ0lM6feaqNAnLtcoQ45MLj+AS4jdwUyL1KZzjNfbOFwroKZiMc0cogLKcWUirzKCnGvGnax8ZmI1/ZuytY3OG
+  template:
+    metadata:
+      name: application-registry-auth
+      namespace: application-registry

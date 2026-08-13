@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: {{ .Values.project.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+spec:
+  description: Restricted public application workloads
+  sourceRepos:
+    - {{ .Values.project.sourceRepository | quote }}
+  destinations:
+    - namespace: {{ .Values.project.destinationNamespace | quote }}
+      server: {{ .Values.project.destinationServer | quote }}
+  clusterResourceBlacklist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: Deployment
+    - group: ""
+      kind: Service
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+  orphanedResources:
+    warn: true

@@ -50,6 +50,7 @@ dnsmasq:
         - address=/homelab.elate.me/192.168.1.50
         - address=/grafana.elate.me/192.168.1.50
         - address=/uptime.elate.me/192.168.1.50
+        - address=/images.elate.me/192.168.1.50
         - address=/vpn.elate.me/192.168.1.54
 
 # Resources

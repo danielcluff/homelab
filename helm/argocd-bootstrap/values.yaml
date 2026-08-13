@@ -1,0 +1,15 @@
+project:
+  name: public-applications
+  sourceRepository: https://github.com/danielcluff/homelab-apps.git
+  destinationNamespace: public-sites
+  destinationServer: https://kubernetes.default.svc
+
+application:
+  name: homelab-apps-production
+  revision: main
+  path: .
+  valuesFile: environments/production.yaml
+  automated:
+    enabled: true
+    prune: true
+    selfHeal: true

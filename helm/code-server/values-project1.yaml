@@ -1,8 +1,7 @@
 ---
-# Project-specific dev environment template
-# Copy this file and customize for each project
-# Accessible at https://project1.elate.me (customize hostname)
-# Deploy with: helm install code-server-project1 coder/code-server -n devenv -f helm/code-server/values-project1.yaml
+# Reference profile for designing a future project environment.
+# This file is not independently deployable. Add the workload resources to the
+# repository-owned chart before applying any of these settings.
 
 image:
   repository: ghcr.io/coder/code-server
@@ -94,20 +93,3 @@ nodeSelector: {}
 
 # Affinity
 affinity: {}
-
-# Lifecycle hooks to install Claude Code and Open Code
-lifecycle:
-  postStart:
-    exec:
-      command:
-        - /bin/bash
-        - -c
-        - |
-          # Install Node.js if not present
-          if ! command -v node &> /dev/null; then
-            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-          fi
-          # Install Claude Code and Open Code
-          sudo npm install -g @anthropic-ai/claude-code opencode-ai || true
-          echo "Claude Code and Open Code installation complete"

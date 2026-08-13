@@ -1,6 +1,17 @@
 # Namespace policy rollout state. Most application namespaces are now enforced;
 # keep observe mode only for a deliberate exception while its traffic is audited.
 namespaces:
+  - name: application-registry
+    classification: internal
+    mode: enforce
+    podSecurityStandard: restricted
+  - name: argocd
+    classification: infrastructure
+    # Bootstrap in observe mode while controller, repository, Redis, API, and
+    # GitHub traffic is measured. Replace with exact Cilium policy before UI
+    # ingress or additional repositories are enabled.
+    mode: observe
+    podSecurityStandard: restricted
   - name: cloudflare-tunnel
     classification: public
     mode: enforce

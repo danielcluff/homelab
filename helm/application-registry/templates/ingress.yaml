@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: application-registry
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: application-registry
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.clusterIssuer }}
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: {{ .Values.hostname }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: application-registry
+                port:
+                  name: http
+  tls:
+    - secretName: {{ .Values.tlsSecretName }}
+      hosts:
+        - {{ .Values.hostname }}
+

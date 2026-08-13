@@ -100,6 +100,19 @@ egress is restricted to CoreDNS.
 
 To roll back, set the registry's `mode` to `observe` and upgrade the chart.
 
+### Application registry
+
+The `application-registry` namespace hosts the authenticated registry used by
+the public application delivery pipeline. It is exposed only through the
+internal Traefik controller as `images.elate.me`; its Service remains
+ClusterIP-only and neither cloudflared nor public Traefik has a route to it.
+The registry accepts TCP/5000 only from internal Traefik and node health probes,
+and it has no permitted egress.
+
+The namespace enforces the Kubernetes Restricted Pod Security standard. To roll
+back policy enforcement while diagnosing a connectivity issue, set the
+namespace's `mode` to `observe` and upgrade the network-policies chart.
+
 ### Uptime Kuma
 
 Uptime Kuma accepts TCP/3001 from Traefik and node health probes. Its egress is

@@ -1,4 +1,14 @@
 misconfigurations:
+  - id: KSV-0056
+    paths:
+      - "homelab-argocd/templates/public-sites-role.yaml"
+    statement: >-
+      The Argo CD application controller must reconcile the chart-managed
+      ClusterIP Services and public Ingress objects. This Role is restricted to
+      the public-sites namespace; its matching AppProject limits the source
+      repository and permitted resource kinds, and it has no Secret,
+      NetworkPolicy, Endpoint, or cluster-scoped access.
+    expired_at: 2027-02-13
   - id: KSV-0041
     paths:
       - "homelab-traefik/charts/traefik/templates/rbac/clusterrole.yaml"

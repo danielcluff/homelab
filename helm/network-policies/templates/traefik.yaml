@@ -52,6 +52,13 @@ spec:
     # Explicit currently routed application backends.
     - toEndpoints:
         - matchLabels:
+            io.kubernetes.pod.namespace: application-registry
+            app.kubernetes.io/name: application-registry
+      toPorts:
+        - ports:
+            - { port: "5000", protocol: TCP }
+    - toEndpoints:
+        - matchLabels:
             io.kubernetes.pod.namespace: devenv
             app: code-server
       toPorts:
