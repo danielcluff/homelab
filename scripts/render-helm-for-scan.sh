@@ -30,9 +30,12 @@ render_chart() {
   # committed lock file so this script also works from a clean CI checkout.
   if [[ -f "${chart_dir}/Chart.lock" ]]; then
     if [[ "${chart}" == "helm/traefik" || \
-          "${chart}" == "helm/traefik-public" ]] && \
-       ! compgen -G "${chart_dir}/charts/traefik-*.tgz" >/dev/null; then
+          "${chart}" == "helm/traefik-public" ]]; then
       helm repo add traefik https://traefik.github.io/charts \
+        --force-update >/dev/null
+    fi
+    if [[ "${chart}" == "helm/argocd" ]]; then
+      helm repo add argo https://argoproj.github.io/argo-helm \
         --force-update >/dev/null
     fi
     helm dependency build --skip-refresh "${chart_dir}" >/dev/null
