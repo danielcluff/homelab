@@ -19,6 +19,40 @@ argo-cd:
     cm:
       admin.enabled: "true"
       application.instanceLabelKey: argocd.argoproj.io/instance
+      cluster.inClusterEnabled: "false"
+      resource.inclusions: |
+        - apiGroups:
+            - ""
+          kinds:
+            - Pod
+            - Service
+          clusters:
+            - "*"
+        - apiGroups:
+            - apps
+          kinds:
+            - Deployment
+            - ReplicaSet
+          clusters:
+            - "*"
+        - apiGroups:
+            - policy
+          kinds:
+            - PodDisruptionBudget
+          clusters:
+            - "*"
+        - apiGroups:
+            - networking.k8s.io
+          kinds:
+            - Ingress
+          clusters:
+            - "*"
+        - apiGroups:
+            - autoscaling
+          kinds:
+            - HorizontalPodAutoscaler
+          clusters:
+            - "*"
     params:
       server.insecure: false
 

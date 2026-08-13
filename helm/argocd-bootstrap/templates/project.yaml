@@ -27,4 +27,6 @@ spec:
     - group: autoscaling
       kind: HorizontalPodAutoscaler
   orphanedResources:
-    warn: true
+    # Existing public sites remain managed by the legacy homelab Helm release
+    # until an explicit cutover. Do not report them as Argo-owned orphans.
+    warn: {{ .Values.project.orphanWarnings }}

@@ -2,7 +2,10 @@ project:
   name: public-applications
   sourceRepository: https://github.com/danielcluff/homelab-apps.git
   destinationNamespace: public-sites
-  destinationServer: https://kubernetes.default.svc
+  # Use a distinct identity from Argo CD's reserved implicit in-cluster URL so
+  # this Application selects the namespace-scoped sealed cluster credential.
+  destinationServer: https://kubernetes.default.svc.cluster.local
+  orphanWarnings: false
 
 application:
   name: homelab-apps-production

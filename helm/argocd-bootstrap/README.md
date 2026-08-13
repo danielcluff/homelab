@@ -9,9 +9,14 @@ Install this chart only after the Argo CD CRDs and controllers are healthy:
 
 ```bash
 helm upgrade --install argocd-bootstrap helm/argocd-bootstrap \
-  --namespace argocd
+  --namespace argocd \
+  --server-side=false
 ```
 
 Both applications currently remain disabled in `homelab-apps`, so the first
 sync is intentionally empty. Argo CD will not adopt or prune the existing
 Helm-managed public site resources.
+
+Orphan warnings are disabled during this coexistence period. Enable them after
+the legacy `public-sites` Helm release has been retired and Argo CD owns every
+resource in the namespace.

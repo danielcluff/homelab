@@ -8,8 +8,8 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 subjects:
   - kind: ServiceAccount
-    name: argocd-application-controller
-    namespace: {{ .Release.Namespace }}
+    name: argocd-public-applications
+    namespace: public-sites
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

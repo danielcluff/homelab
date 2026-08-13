@@ -9,12 +9,23 @@ This wrapper grants the application controller an explicit Role in
 `public-sites` containing only the resource kinds allowed by the matching
 `AppProject`.
 
+The implicit, broadly discovered in-cluster connection is disabled. A
+dedicated `argocd-public-applications` service account is bound to the
+namespace Role, and its cluster credential is stored as a SealedSecret in the
+`argocd` namespace with `namespaces: public-sites` and cluster resources
+disabled.
+
 ```bash
 helm dependency build helm/argocd
 helm upgrade --install argocd helm/argocd \
   --namespace argocd \
-  --create-namespace
+  --create-namespace \
+  --server-side=false
 ```
+
+Helm 4.2 server-side apply can stall on the chart's pre-install Redis Secret
+hook deletion policy. Keep client-side apply for this release until that Helm
+hook behavior is fixed and tested.
 
 Retrieve the generated bootstrap password without committing it:
 
