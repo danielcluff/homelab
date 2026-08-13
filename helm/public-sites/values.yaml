@@ -16,6 +16,9 @@ sites:
   - name: elate-biz
     domain: elate.biz
     publicIngress: true
+    # Preserve the live objects when this site is removed from the legacy
+    # release so Argo CD can adopt them without an availability gap.
+    migrationKeep: true
 
 resources:
   requests:

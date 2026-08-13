@@ -6,6 +6,10 @@ kind: ConfigMap
 metadata:
   name: {{ .name }}-content
   namespace: public-sites
+  {{- if .migrationKeep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
   labels:
     app.kubernetes.io/name: public-site
     app.kubernetes.io/instance: {{ .name }}
@@ -19,6 +23,10 @@ kind: Deployment
 metadata:
   name: {{ .name }}
   namespace: public-sites
+  {{- if .migrationKeep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
   labels:
     app.kubernetes.io/name: public-site
     app.kubernetes.io/instance: {{ .name }}
@@ -124,6 +132,10 @@ kind: Service
 metadata:
   name: {{ .name }}
   namespace: public-sites
+  {{- if .migrationKeep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
   labels:
     app.kubernetes.io/name: public-site
     app.kubernetes.io/instance: {{ .name }}
@@ -143,6 +155,10 @@ kind: PodDisruptionBudget
 metadata:
   name: {{ .name }}
   namespace: public-sites
+  {{- if .migrationKeep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
   labels:
     app.kubernetes.io/name: public-site
     app.kubernetes.io/instance: {{ .name }}
@@ -161,6 +177,9 @@ metadata:
   namespace: public-sites
   annotations:
     kubernetes.io/ingress.class: traefik-public
+    {{- if .migrationKeep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
   labels:
     app.kubernetes.io/name: public-site
     app.kubernetes.io/instance: {{ .name }}
