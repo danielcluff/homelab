@@ -13,9 +13,8 @@ helm upgrade --install argocd-bootstrap helm/argocd-bootstrap \
   --server-side=false
 ```
 
-Both applications currently remain disabled in `homelab-apps`, so the first
-sync is intentionally empty. Argo CD will not adopt or prune the existing
-Helm-managed public site resources.
+`elate.biz` is managed by this Application. `elate.me` remains disabled in
+`homelab-apps` until its separate migration is completed.
 
 Orphan warnings are disabled during this coexistence period. Enable them after
 the legacy `public-sites` Helm release has been retired and Argo CD owns every

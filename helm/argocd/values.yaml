@@ -53,6 +53,22 @@ argo-cd:
             - HorizontalPodAutoscaler
           clusters:
             - "*"
+      resource.customizations.health.networking.k8s.io_Ingress: |
+        hs = {}
+        if obj.metadata.deletionTimestamp ~= nil then
+          hs.status = "Progressing"
+          hs.message = "Ingress is being deleted"
+          return hs
+        end
+        local annotations = obj.metadata.annotations or {}
+        if annotations["kubernetes.io/ingress.class"] == "traefik-public" then
+          hs.status = "Healthy"
+          hs.message = "Route is managed by the ClusterIP-only public Traefik controller"
+          return hs
+        end
+        hs.status = "Progressing"
+        hs.message = "Waiting for an ingress load balancer address"
+        return hs
     params:
       server.insecure: false
 
