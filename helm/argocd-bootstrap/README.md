@@ -13,9 +13,8 @@ helm upgrade --install argocd-bootstrap helm/argocd-bootstrap \
   --server-side=false
 ```
 
-`elate.biz` is managed by this Application. `elate.me` remains disabled in
-`homelab-apps` until its separate migration is completed.
+`elate.me` and `elate.biz` are managed by this Application.
 
-Orphan warnings are disabled during this coexistence period. Enable them after
-the legacy `public-sites` Helm release has been retired and Argo CD owns every
-resource in the namespace.
+Orphan warnings are enabled so unexpected workload resources in the managed
+namespace are visible in Argo CD. Namespace infrastructure outside the
+project's allowed kinds remains managed by the `homelab` repository.

@@ -27,6 +27,6 @@ spec:
     - group: autoscaling
       kind: HorizontalPodAutoscaler
   orphanedResources:
-    # Existing public sites remain managed by the legacy homelab Helm release
-    # until an explicit cutover. Do not report them as Argo-owned orphans.
+    # Surface unexpected resources among the namespaced workload kinds this
+    # restricted project is allowed to manage.
     warn: {{ .Values.project.orphanWarnings }}
