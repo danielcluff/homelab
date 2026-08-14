@@ -5,7 +5,7 @@ project:
   # Use a distinct identity from Argo CD's reserved implicit in-cluster URL so
   # this Application selects the namespace-scoped sealed cluster credential.
   destinationServer: https://kubernetes.default.svc.cluster.local
-  orphanWarnings: false
+  orphanWarnings: true
 
 application:
   name: homelab-apps-production
